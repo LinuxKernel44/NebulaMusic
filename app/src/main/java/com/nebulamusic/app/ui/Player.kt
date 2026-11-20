@@ -399,6 +399,15 @@ fun PlayerScreen(
     var prevBins by remember { mutableStateOf<FloatArray?>(null) }
     var prevBinsDurMs by remember { mutableLongStateOf(0L) }
     val morphAnim = remember { Animatable(1f) }
+    // New track whose waveform is not ready yet: drop the previous track's shape instead of leaving it on screen.
+    LaunchedEffect(beat?.id) {
+        if (wave.trackId != beat?.id && bins != null) {
+            prevBins = bins; prevBinsDurMs = binsDurMs
+            bins = null; binsDurMs = 0L
+            morphAnim.snapTo(0f)
+            morphAnim.animateTo(1f, tween(450))
+        }
+    }
     LaunchedEffect(wave, beat?.id) {
         if (wave.trackId != beat?.id || wave.bins === bins) return@LaunchedEffect
         prevBins = bins; prevBinsDurMs = binsDurMs

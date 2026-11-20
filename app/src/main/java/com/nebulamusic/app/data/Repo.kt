@@ -109,12 +109,26 @@ class Repo(private val c: AppContainer) {
         synchronized(waveCache) { waveCache[t.id] }?.let { return it }
         val bins = withContext(Dispatchers.IO) {
             readWave(waveFile(t)) ?: run {
-                val src = localPath?.takeIf { File(it).exists() } ?: c.session.value?.waveUrl(t.id)
-                src?.let { decodeWaveform(it, localPath != null) }?.also { writeWave(waveFile(t), it) }
+                val local = localPath?.takeIf { File(it).exists() }
+                val bins = if (local != null) decodeWaveform(local, true) else fetchAndDecode(t)
+                bins?.also { writeWave(waveFile(t), it) }
             }
         }
         if (bins != null) synchronized(waveCache) { waveCache[t.id] = bins }
         return bins
+    }
+
+    /** Downloads the tiny transcode first (about a second), then decodes it locally: far faster than decoding over HTTP. */
+    private fun fetchAndDecode(t: Track): FloatArray? {
+        val url = c.session.value?.waveUrl(t.id) ?: return null
+        val tmp = File(File(c.ctx.cacheDir, "wave").apply { mkdirs() }, "tmp-${t.id.filter { it.isLetterOrDigit() }}.mp3")
+        return try {
+            c.http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+                if (!r.isSuccessful) return null
+                tmp.outputStream().use { out -> r.body?.byteStream()?.copyTo(out) ?: return null }
+            }
+            decodeWaveform(tmp.absolutePath, true)
+        } catch (e: Exception) { null } finally { tmp.delete() }
     }
 
     private fun readWave(f: File): FloatArray? = runCatching {

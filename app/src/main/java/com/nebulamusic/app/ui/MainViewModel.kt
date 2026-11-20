@@ -285,6 +285,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    init {
+        // Warm the waveform of the next song so it is ready the moment the user skips.
+        viewModelScope.launch {
+            player.state.map { it.queue.getOrNull(it.index + 1) }.distinctUntilChangedBy { it?.id }.filterNotNull().collectLatest { n ->
+                kotlinx.coroutines.delay(1500)
+                c.repo.waveform(n, localPaths.value[n.id])
+            }
+        }
+    }
+
     // ---- Queue persistence -----------------------------------------------------------------
     private val queueFile get() = File(getApplication<Application>().filesDir, "queue.json")
 
