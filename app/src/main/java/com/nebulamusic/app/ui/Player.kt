@@ -447,22 +447,30 @@ fun PlayerScreen(
             Crossfade(shown, animationSpec = tween(260), label = "artFade") { st ->
                 if (st != null) Box(Modifier.fillMaxSize()) {
                     // Vivid blurred copy of the cover fills the screen; the whole cover sits on top as a square.
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(st.tint, Color.Black))))
+                    Box(Modifier.fillMaxSize().background(Color.Black))
                     st.blur?.let {
                         Image(
                             it, null, contentScale = ContentScale.Crop, filterQuality = FilterQuality.Medium,
+                            colorFilter = ColorFilter.colorMatrix(
+                                ColorMatrix().apply {
+                                    setToSaturation(1.7f)
+                                    // Lift dark covers so their colour zones stay vivid behind the controls.
+                                    timesAssign(ColorMatrix(floatArrayOf(1.45f, 0f, 0f, 0f, 6f, 0f, 1.45f, 0f, 0f, 6f, 0f, 0f, 1.45f, 0f, 6f, 0f, 0f, 0f, 1f, 0f)))
+                                }
+                            ),
                             modifier = Modifier.fillMaxSize()
                         )
                     }
+                    // Colours stay vivid down the middle; the screen only goes to black near the bottom.
                     Box(
                         Modifier.fillMaxSize().background(
                             Brush.verticalGradient(
-                                0f to Color.Transparent, 0.35f to Color.Black.copy(alpha = 0.15f),
-                                0.5f to Color.Black.copy(alpha = 0.5f), 0.7f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.92f)
+                                0f to Color.Transparent, 0.5f to Color.Transparent, 0.64f to Color.Black.copy(alpha = 0.12f),
+                                0.78f to Color.Black.copy(alpha = 0.45f), 0.9f to Color.Black.copy(alpha = 0.82f), 1f to Color.Black
                             )
                         )
                     )
-                    // Square cover, full width, fully visible (never cropped to a tall box); its bottom edge melts into the blur.
+                    // Square cover, full width, fully visible, true colours; its bottom edge melts into the blur.
                     val sidePx = if (artH > 0 && rootSize.width > 0) minOf(rootSize.width, artH + with(density) { 40.dp.roundToPx() }) else rootSize.width
                     AsyncImage(
                         model = session?.coverUrl(st.beat.coverArt, 800), contentDescription = null, contentScale = ContentScale.Crop,
@@ -471,15 +479,10 @@ fun PlayerScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    Brush.verticalGradient(0.80f to Color.Black, 1f to Color.Transparent),
+                                    Brush.verticalGradient(0.86f to Color.Black, 1f to Color.Transparent),
                                     blendMode = BlendMode.DstIn
                                 )
                             }
-                    )
-                    Box(
-                        Modifier.fillMaxWidth().height(110.dp).background(
-                            Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent))
-                        )
                     )
                 }
             }
