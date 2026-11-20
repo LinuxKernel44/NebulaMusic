@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:pivotX="54" android:pivotY="54" android:rotation="-35">
+        <path android:pathData="M21,54a33,13 0 1,0 66,0a33,13 0 1,0 -66,0">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="radial" android:centerX="54" android:centerY="54" android:gradientRadius="33">
+                    <item android:offset="0" android:color="#CC9B8CFF"/>
+                    <item android:offset="1" android:color="#009B8CFF"/>
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="35">
+        <path android:pathData="M21,54a33,12 0 1,0 66,0a33,12 0 1,0 -66,0">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="radial" android:centerX="54" android:centerY="54" android:gradientRadius="33">
+                    <item android:offset="0" android:color="#BB4FA3FF"/>
+                    <item android:offset="1" android:color="#004FA3FF"/>
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="90">
+        <path android:pathData="M24,54a30,10 0 1,0 60,0a30,10 0 1,0 -60,0">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="radial" android:centerX="54" android:centerY="54" android:gradientRadius="30">
+                    <item android:offset="0" android:color="#99E06BFF"/>
+                    <item android:offset="1" android:color="#00E06BFF"/>
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,34 L57.2,50.8 L74,54 L57.2,57.2 L54,74 L50.8,57.2 L34,54 L50.8,50.8 Z"/>
+    <path android:fillColor="#33FFFFFF" android:pathData="M54,46 a8,8 0 1,0 0.01,0 Z"/>
+</vector>
