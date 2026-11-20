@@ -42,8 +42,9 @@ fun TrackColumn(
     footer: (@Composable () -> Unit)? = null,
     numbered: Boolean = false,
     onEndReached: (() -> Unit)? = null,
+    stateKey: String = "tracks",
 ) {
-    val listState = rememberLazyListState()
+    val listState = rememberKeptListState(stateKey)
     RegisterSelectable(tracks)
     if (onEndReached != null) {
         val near by remember { derivedStateOf { listState.layoutInfo.let { l -> (l.visibleItemsInfo.lastOrNull()?.index ?: 0) >= l.totalItemsCount - 12 } } }

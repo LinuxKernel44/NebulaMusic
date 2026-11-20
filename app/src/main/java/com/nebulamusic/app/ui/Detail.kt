@@ -121,7 +121,7 @@ fun ArtistScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, on
     val backdrop = glassBackdrop()
     val bottomInset = LocalBottomInset.current
     var headerH by remember { mutableStateOf(80.dp) }
-    val ls = rememberLazyListState()
+    val ls = rememberKeptListState("artist")
     var bioOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -172,7 +172,7 @@ fun ArtistScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, on
                         if (info.similar.isNotEmpty()) {
                             item { SectionHeader(stringResource(R.string.similar_artists)) }
                             item {
-                                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                LazyRow(state = rememberKeptListState("similar"), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                     items(info.similar.filter { it.id.isNotBlank() }, key = { it.id }) { a ->
                                         Column(Modifier.width(90.dp).clip(RoundedCornerShape(12.dp)).clickable { nav.openArtist(a.id) }, horizontalAlignment = Alignment.CenterHorizontally) {
                                             CircleCover(a.coverArt, Modifier.size(80.dp))
@@ -216,7 +216,7 @@ fun PlaylistScreen(
             LoadView(state, reload) { (pl, tracks) ->
                 if (tracks.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_playlist)) }
                 else {
-                    val ls = rememberLazyListState()
+                    val ls = rememberKeptListState("playlist")
                     RegisterSelectable(tracks)
                     Box(Modifier.fillMaxSize()) {
                         LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = PaddingValues(top = headerH, bottom = bottomInset + 8.dp)) {
@@ -274,7 +274,7 @@ fun GenreScreen(vm: MainViewModel, genre: String, nav: Nav, onBack: () -> Unit) 
             LoadView(state, reload) { albums ->
                 if (albums.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
                 else LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    state = rememberKeptGridState("genre"), columns = GridCells.Fixed(2),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = headerH, bottom = bottomInset + 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxSize()

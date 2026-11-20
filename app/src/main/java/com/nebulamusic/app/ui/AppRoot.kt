@@ -215,6 +215,7 @@ fun AppRoot(vm: MainViewModel) {
     var backOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var rootWidth by remember { mutableFloatStateOf(1080f) }
     val prevBackdrop = rememberLayerBackdrop()
+    val scrollMemory = remember { ScrollMemory() }
     val covering by remember { derivedStateOf { progress.value <= 0.001f } }
     var playerComposed by remember { mutableStateOf(false) }
     var rootHeight by remember { mutableFloatStateOf(2000f) }
@@ -253,6 +254,7 @@ fun AppRoot(vm: MainViewModel) {
         LocalSelection provides selection,
         LocalArtTheme provides art,
         LocalSession provides session,
+        LocalScrollMemory provides scrollMemory,
     ) {
         Box(Modifier.fillMaxSize().background(Bg).onSizeChanged { rootHeight = it.height.toFloat(); rootWidth = it.width.toFloat() }) {
           Box(Modifier.fillMaxSize().layerBackdrop(overlayBackdrop).background(Bg)) {
@@ -284,7 +286,9 @@ fun AppRoot(vm: MainViewModel) {
             ) {
                 // Only one screen at a time may own the shared glass backdrop layer (the one behind gets its own).
                 val top = stack.lastOrNull()
-                val renderDest: @Composable (Dest?) -> Unit = { d ->
+                val renderDest: @Composable (Dest?, Int) -> Unit = { d, depth ->
+                    val screenKey = if (d == null) "tab:$tab" else "$depth:$d"
+                    CompositionLocalProvider(LocalScreenKey provides screenKey) {
                     when (d) {
                         is Dest.Login -> LoginScreen(
                             vm, servers.firstOrNull { it.id == d.serverId }, canCancel = true,
@@ -314,6 +318,7 @@ fun AppRoot(vm: MainViewModel) {
                             )
                         }
                     }
+                    }
                 }
                 if (needsLogin) LoginScreen(vm, null, canCancel = false, onDone = {}, onCancel = {})
                 else {
@@ -326,7 +331,7 @@ fun AppRoot(vm: MainViewModel) {
                                 scaleX = k; scaleY = k
                             }
                         ) {
-                            CompositionLocalProvider(LocalGlassBackdrop provides prevBackdrop) { renderDest(prev) }
+                            CompositionLocalProvider(LocalGlassBackdrop provides prevBackdrop) { renderDest(prev, stack.size - 2) }
                             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f * (1f - backP.value))))
                         }
                     }
@@ -345,7 +350,7 @@ fun AppRoot(vm: MainViewModel) {
                             shape = RoundedCornerShape((34f * p).dp)
                             clip = p > 0f
                         }
-                    ) { renderDest(top) }
+                    ) { renderDest(top, stack.size - 1) }
                 }
             }
 

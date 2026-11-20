@@ -58,7 +58,7 @@ fun SettingsScreen(
     Box(Modifier.fillMaxSize()) {
         ScreenBackdrop {
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = headerH, bottom = bottomInset + 16.dp)
+                Modifier.fillMaxSize().verticalScroll(rememberKeptScrollState("settings")).padding(top = headerH, bottom = bottomInset + 16.dp)
             ) {
                 SectionTitle(stringResource(R.string.set_servers))
                 for (s in servers) {

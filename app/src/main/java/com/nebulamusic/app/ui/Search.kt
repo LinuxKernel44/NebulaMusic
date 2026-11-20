@@ -28,7 +28,9 @@ import com.nebulamusic.app.glass.GlassTextField
 
 @Composable
 fun SearchScreen(vm: MainViewModel, nav: Nav, onMenu: (Track) -> Unit) {
-    var query by rememberSaveable { mutableStateOf("") }
+    val mem = LocalScrollMemory.current
+    var query by remember { mutableStateOf(mem.texts["search"].orEmpty()) }
+    LaunchedEffect(query) { mem.texts["search"] = query }
     var result by remember { mutableStateOf<Load<SearchResults>?>(null) }
     val env = rememberTrackEnv(vm)
     val focus = remember { FocusRequester() }
@@ -36,7 +38,7 @@ fun SearchScreen(vm: MainViewModel, nav: Nav, onMenu: (Track) -> Unit) {
     val backdrop = glassBackdrop()
     val bottomInset = LocalBottomInset.current
     var headerH by remember { mutableStateOf(80.dp) }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
 
     LaunchedEffect(query) {
         val q = query.trim()

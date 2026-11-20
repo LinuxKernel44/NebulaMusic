@@ -47,7 +47,7 @@ fun HomeScreen(vm: MainViewModel, nav: Nav) {
     val bottomInset = LocalBottomInset.current
     var headerH by remember { mutableStateOf(120.dp) }
     val loading = home is Load.Loading
-    val listState = rememberLazyListState()
+    val listState = rememberKeptListState("home")
 
     Box(Modifier.fillMaxSize()) {
         ScreenBackdrop {
@@ -68,7 +68,7 @@ fun HomeScreen(vm: MainViewModel, nav: Nav) {
                                 item(key = title) {
                                     Column {
                                         SectionHeader(stringResource(title))
-                                        AlbumRowStrip(albums, nav.openAlbum)
+                                        AlbumRowStrip(albums, nav.openAlbum, stateKey = stringResource(title))
                                     }
                                 }
                             }
@@ -122,8 +122,8 @@ fun HomeScreen(vm: MainViewModel, nav: Nav) {
 }
 
 @Composable
-fun AlbumRowStrip(albums: List<Album>, onOpen: (String) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+fun AlbumRowStrip(albums: List<Album>, onOpen: (String) -> Unit, stateKey: String = "strip") {
+    LazyRow(state = rememberKeptListState("strip-$stateKey"), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(albums, key = { it.id }) { a -> AlbumCard(a, Modifier.width(150.dp), onClick = { onOpen(a.id) }) }
     }
 }

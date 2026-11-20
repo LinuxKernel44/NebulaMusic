@@ -81,7 +81,7 @@ fun LibraryScreen(
                     LoadView(st, vm::refreshArtists) { list ->
                         if (list.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
                         else {
-                            val ls = rememberLazyListState()
+                            val ls = rememberKeptListState("artists")
                             Box(Modifier.fillMaxSize()) {
                                 LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
                                     items(list, key = { it.id }) { a -> ArtistRow(a) { nav.openArtist(a.id) } }
@@ -95,7 +95,7 @@ fun LibraryScreen(
                 LibSection.ALBUMS -> {
                     val items by vm.albums.items.collectAsState()
                     val st by vm.albums.state.collectAsState()
-                    val gs = rememberLazyGridState()
+                    val gs = rememberKeptGridState("albums")
                     val near by remember { derivedStateOf { gs.layoutInfo.let { (it.visibleItemsInfo.lastOrNull()?.index ?: 0) >= it.totalItemsCount - 10 } } }
                     LaunchedEffect(near, items.size) { if (near) vm.albums.more() }
                     if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.albums.reset() }) {
@@ -118,13 +118,13 @@ fun LibraryScreen(
                     val st by vm.songs.state.collectAsState()
                     if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.songs.reset() }) {
                         Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                    } else TrackColumn(items, vm, env, onMenu, contentPadding = pad, onEndReached = vm.songs::more)
+                    } else TrackColumn(items, vm, env, onMenu, contentPadding = pad, onEndReached = vm.songs::more, stateKey = "songs")
                 }
 
                 LibSection.GENRES -> {
                     val st by vm.genres.collectAsState()
                     LoadView(st, vm::refreshGenres) { list ->
-                        val ls = rememberLazyListState()
+                        val ls = rememberKeptListState("genres")
                         Box(Modifier.fillMaxSize()) {
                             LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
                                 items(list, key = { it.name }) { g ->
@@ -154,7 +154,7 @@ fun LibraryScreen(
                 LibSection.PLAYLISTS -> {
                     val st by vm.playlists.collectAsState()
                     LoadView(st, vm::refreshPlaylists) { list ->
-                        val ls = rememberLazyListState()
+                        val ls = rememberKeptListState("playlists")
                         Box(Modifier.fillMaxSize()) {
                             LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
                                 item {
@@ -180,11 +180,11 @@ fun LibraryScreen(
                     LoadView(st, vm::refreshFavorites) { fav ->
                         if (fav.isEmpty) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_favs)) }
                         else TrackColumn(
-                            fav.tracks, vm, env, onMenu, contentPadding = pad,
+                            fav.tracks, vm, env, onMenu, contentPadding = pad, stateKey = "favorites",
                             header = {
                                 Column {
                                     if (fav.tracks.isNotEmpty()) PlayAllRow(fav.tracks, vm)
-                                    if (fav.albums.isNotEmpty()) { SectionHeader(stringResource(R.string.lib_albums)); AlbumRowStrip(fav.albums, nav.openAlbum) }
+                                    if (fav.albums.isNotEmpty()) { SectionHeader(stringResource(R.string.lib_albums)); AlbumRowStrip(fav.albums, nav.openAlbum, stateKey = "fav") }
                                     if (fav.artists.isNotEmpty()) {
                                         SectionHeader(stringResource(R.string.lib_artists))
                                         fav.artists.forEach { a -> ArtistRow(a) { nav.openArtist(a.id) } }
@@ -202,7 +202,7 @@ fun LibraryScreen(
                     val inProgress = env.progress.keys.toList()
                     if (downloaded.isEmpty() && inProgress.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_downloads)) }
                     else TrackColumn(
-                        downloaded, vm, env, onMenu, contentPadding = pad,
+                        downloaded, vm, env, onMenu, contentPadding = pad, stateKey = "downloads",
                         header = {
                             Column {
                                 if (inProgress.isNotEmpty()) DownloadingSection(inProgress.size, env.progress)
@@ -234,7 +234,7 @@ fun LibraryScreen(
                     Icon(Icons.Rounded.Settings, stringResource(R.string.settings), tint = Color.White)
                 }
             }
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(state = rememberKeptListState("chips"), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(LibSection.entries) { s -> GlassChip(stringResource(s.label()), section == s, { onSection(s) }, backdrop) }
             }
         }
