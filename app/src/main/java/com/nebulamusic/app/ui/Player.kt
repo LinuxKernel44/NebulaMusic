@@ -783,14 +783,47 @@ fun GlassMiniPlayer(vm: MainViewModel, backdrop: Backdrop, onOpen: () -> Unit, m
             }
         }
         val frac = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        // Touch or drag the bar to seek (same fade-out / jump / fade-in as the big seekbar). The bar swallows these
+        // gestures, so they neither open the player nor skip to the previous / next song.
+        var scrubFrac by remember { mutableStateOf<Float?>(null) }
+        val shown = scrubFrac ?: frac
         Box(
-            Modifier.fillMaxWidth().padding(start = 2.dp, end = 6.dp, top = 8.dp).height(8.dp)
-                .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f))
+            Modifier.fillMaxWidth().padding(start = 2.dp, end = 6.dp).height(30.dp)
+                .pointerInput(duration) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        if (duration <= 0) return@awaitEachGesture
+                        down.consume()
+                        val w = size.width.toFloat().coerceAtLeast(1f)
+                        var f = (down.position.x / w).coerceIn(0f, 1f)
+                        scrubFrac = f
+                        vm.player.scrubStart()
+                        try {
+                            while (true) {
+                                val ev = awaitPointerEvent()
+                                val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!ch.pressed) break
+                                ch.consume()
+                                f = (ch.position.x / w).coerceIn(0f, 1f)
+                                scrubFrac = f
+                            }
+                        } finally {
+                            vm.player.scrubEnd((f * duration).toLong())
+                            scrubFrac = null
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center
         ) {
+            val barH by animateFloatAsState(if (scrubFrac != null) 12f else 8f, tween(120), label = "miniBar")
             Box(
-                Modifier.fillMaxWidth(frac.coerceAtLeast(0.05f)).fillMaxHeight()
-                    .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.75f))
-            )
+                Modifier.fillMaxWidth().height(barH.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f))
+            ) {
+                Box(
+                    Modifier.fillMaxWidth(shown.coerceAtLeast(0.05f)).fillMaxHeight()
+                        .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.75f))
+                )
+            }
         }
     }
 }
