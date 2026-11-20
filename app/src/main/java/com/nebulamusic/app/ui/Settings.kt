@@ -139,6 +139,9 @@ fun SettingsScreen(
                     }
                 }
 
+                SectionTitle(stringResource(R.string.set_icon))
+                AppIconPicker()
+
                 SectionTitle(stringResource(R.string.set_backup))
                 ActionRow(Icons.Rounded.FileUpload, stringResource(R.string.export_title), onExport)
                 ActionRow(Icons.Rounded.FileDownload, stringResource(R.string.import_title), onImport)
@@ -238,4 +241,60 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (selected) Accent else SurfaceHi).clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp)
     )
+}
+
+
+private class IconChoice(val alias: String, val res: Int, val label: Int)
+
+private val ICON_CHOICES = listOf(
+    IconChoice("LauncherDefault", R.mipmap.ic_launcher, R.string.icon_nebula),
+    IconChoice("LauncherAurora", R.mipmap.ic_icon_aurora, R.string.icon_aurora),
+    IconChoice("LauncherVinyl", R.mipmap.ic_icon_vinyl, R.string.icon_vinyl),
+    IconChoice("LauncherGlass", R.mipmap.ic_icon_glass, R.string.icon_glass),
+)
+
+private fun aliasComponent(ctx: android.content.Context, alias: String) =
+    android.content.ComponentName(ctx.packageName, "com.nebulamusic.app.$alias")
+
+/** The launcher alias that is currently enabled (the default one while nothing was ever switched). */
+private fun currentIcon(ctx: android.content.Context): String {
+    val pm = ctx.packageManager
+    return ICON_CHOICES.firstOrNull {
+        val st = pm.getComponentEnabledSetting(aliasComponent(ctx, it.alias))
+        st == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED ||
+            (st == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && it.alias == "LauncherDefault")
+    }?.alias ?: "LauncherDefault"
+}
+
+private fun setIcon(ctx: android.content.Context, alias: String) {
+    val pm = ctx.packageManager
+    // Enable the new one first so the app never has zero launcher entries.
+    pm.setComponentEnabledSetting(aliasComponent(ctx, alias), android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED, android.content.pm.PackageManager.DONT_KILL_APP)
+    for (c in ICON_CHOICES) if (c.alias != alias) {
+        pm.setComponentEnabledSetting(aliasComponent(ctx, c.alias), android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED, android.content.pm.PackageManager.DONT_KILL_APP)
+    }
+}
+
+@Composable
+private fun AppIconPicker() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var current by remember { mutableStateOf(currentIcon(ctx)) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        for (c in ICON_CHOICES) {
+            val on = c.alias == current
+            Column(
+                Modifier.clip(RoundedCornerShape(16.dp)).clickable { setIcon(ctx, c.alias); current = c.alias }.padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { context -> android.widget.ImageView(context).apply { setImageResource(c.res) } },
+                    modifier = Modifier.size(68.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(if (on) Accent else Color.Transparent).padding(if (on) 3.dp else 0.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                )
+                Text(stringResource(c.label), color = if (on) Accent else Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+    Text(stringResource(R.string.set_icon_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
 }
