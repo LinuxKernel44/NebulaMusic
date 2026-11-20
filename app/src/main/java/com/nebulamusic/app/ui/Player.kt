@@ -92,6 +92,9 @@ import kotlin.math.sin
 
 enum class Tab { HOME, SEARCH, LIBRARY }
 
+/** The cover only covers the top part of the artwork zone, so it fades out well above the title. */
+private const val ART_HEIGHT_FRACTION = 0.76f
+
 private val PillBlack = Color.Black.copy(alpha = 0.86f)
 private val PillGlass = Color.White.copy(alpha = 0.14f)
 
@@ -458,7 +461,7 @@ fun PlayerScreen(
                 )
                 AsyncImage(
                     model = session?.coverUrl(st.beat.coverArt, 800), contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(with(density) { artH.toDp() })
+                    modifier = Modifier.fillMaxWidth().height(with(density) { (artH * ART_HEIGHT_FRACTION).toDp() })
                         .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                         .drawWithContent {
                             drawContent()
