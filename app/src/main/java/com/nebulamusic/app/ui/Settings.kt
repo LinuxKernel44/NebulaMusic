@@ -248,11 +248,15 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 private class IconChoice(val alias: String, val res: Int, val label: Int)
 
+/** The alias that is enabled when the user never picked one (keep in sync with the manifest). */
+private const val DEFAULT_ICON_ALIAS = "LauncherVinyl"
+
+// Alias names are kept stable on purpose: a phone that already picked one keeps its choice after updates.
 private val ICON_CHOICES = listOf(
-    IconChoice("LauncherDefault", R.mipmap.ic_launcher, R.string.icon_nebula),
-    IconChoice("LauncherAurora", R.mipmap.ic_icon_aurora, R.string.icon_aurora),
     IconChoice("LauncherVinyl", R.mipmap.ic_icon_vinyl, R.string.icon_vinyl),
+    IconChoice("LauncherAurora", R.mipmap.ic_icon_aurora, R.string.icon_aurora),
     IconChoice("LauncherGlass", R.mipmap.ic_icon_glass, R.string.icon_glass),
+    IconChoice("LauncherDefault", R.mipmap.ic_icon_nebula, R.string.icon_nebula),
 )
 
 private fun aliasComponent(ctx: android.content.Context, alias: String) =
@@ -264,8 +268,8 @@ private fun currentIcon(ctx: android.content.Context): String {
     return ICON_CHOICES.firstOrNull {
         val st = pm.getComponentEnabledSetting(aliasComponent(ctx, it.alias))
         st == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED ||
-            (st == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && it.alias == "LauncherDefault")
-    }?.alias ?: "LauncherDefault"
+            (st == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && it.alias == DEFAULT_ICON_ALIAS)
+    }?.alias ?: DEFAULT_ICON_ALIAS
 }
 
 private fun setIcon(ctx: android.content.Context, alias: String) {
