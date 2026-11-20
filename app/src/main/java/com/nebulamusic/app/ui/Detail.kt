@@ -89,7 +89,17 @@ fun AlbumScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, onM
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ActionChip(Icons.Rounded.PlayArrow, stringResource(R.string.play_all), primary = true) { vm.play(tracks, 0) }
                                 ActionChip(Icons.Rounded.Shuffle, stringResource(R.string.shuffle_play)) { vm.play(tracks.shuffled(), 0) }
-                                ActionChip(Icons.Rounded.Download, stringResource(R.string.download)) { vm.download(tracks) }
+                                val ctx = androidx.compose.ui.platform.LocalContext.current
+                                val allDownloaded = tracks.isNotEmpty() && tracks.all { it.id in env.dls }
+                                val downloading = tracks.any { it.id in env.progress }
+                                when {
+                                    downloading -> ActionChip(Icons.Rounded.Downloading, stringResource(R.string.downloading)) { }
+                                    allDownloaded -> ActionChip(Icons.Rounded.DeleteOutline, stringResource(R.string.delete_downloaded)) {
+                                        vm.deleteDownloads(tracks)
+                                        android.widget.Toast.makeText(ctx, R.string.downloads_removed, android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    else -> ActionChip(Icons.Rounded.Download, stringResource(R.string.download)) { vm.download(tracks) }
+                                }
                                 ActionChip(if (star) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, stringResource(if (star) R.string.rm_fav else R.string.add_fav)) {
                                     albumStar = !star; vm.toggleStarContainer(album.id, StarKind.ALBUM, !star)
                                 }

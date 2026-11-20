@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.nebulamusic.app.R
 import com.nebulamusic.app.player.AudioInfo
 import com.nebulamusic.app.player.BitPerfect
+import com.nebulamusic.app.player.BpState
 
 private fun khz(hz: Int) = if (hz % 1000 == 0) "${hz / 1000} kHz" else "%.1f kHz".format(hz / 1000f)
 
@@ -128,14 +129,17 @@ fun AudioInfoContent() {
         Section(
             stringResource(R.string.ai_bitperfect),
             stringResource(
-                when {
-                    bp.bitPerfect -> R.string.ai_bp_active
-                    bp.usb && android.os.Build.VERSION.SDK_INT < 34 -> R.string.ai_bp_old
-                    bp.usb && bp.supported -> R.string.ai_bp_available
-                    bp.usb -> R.string.ai_bp_unsupported
-                    else -> R.string.ai_bp_nousb
+                when (bp.state) {
+                    BpState.ACTIVE -> R.string.ai_bp_active
+                    BpState.OLD_ANDROID -> R.string.ai_bp_old
+                    BpState.DISABLED -> R.string.ai_bp_available
+                    BpState.NO_BP_MODE -> R.string.ai_bp_unsupported
+                    BpState.REFUSED -> R.string.ai_bp_refused
+                    BpState.NO_DEVICE -> R.string.ai_bp_nousb
                 }
-            )
+            ),
+            bp.applied?.let { stringResource(R.string.ai_bp_format, it) } ?: "",
+            if (bp.formats.isNotEmpty()) stringResource(R.string.ai_bp_formats, bp.formats.joinToString(" / ")) else ""
         )
         Spacer(Modifier.height(10.dp))
     }

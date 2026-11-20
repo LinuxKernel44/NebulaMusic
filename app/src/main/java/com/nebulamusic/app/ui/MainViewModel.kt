@@ -263,6 +263,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Removes the offline copies of these songs (the songs stay on the server). */
+    fun deleteDownloads(list: List<Track>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            for (t in list) {
+                c.db.downloads().get(t.id)?.let { File(it.path).delete() }
+                c.db.downloads().remove(t.id)
+            }
+        }
+    }
+
     fun deleteAllDownloads() {
         viewModelScope.launch(Dispatchers.IO) {
             c.db.downloads().all().forEach { File(it.path).delete(); c.db.downloads().remove(it.trackId) }

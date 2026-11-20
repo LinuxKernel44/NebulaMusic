@@ -3,6 +3,7 @@ package com.nebulamusic.app.player
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
+import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioMixerAttributes
 import android.os.Build
@@ -10,13 +11,39 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** What the user can be told about the output path: which device, and whether Android's bit-perfect mixer is active. */
-data class OutputInfo(val device: String? = null, val usb: Boolean = false, val bitPerfect: Boolean = false, val supported: Boolean = false)
+enum class BpState {
+    /** No USB audio device is connected. */
+    NO_DEVICE,
+    /** Android older than 14: the system has no bit-perfect mixer. */
+    OLD_ANDROID,
+    /** The USB device is there but offers no bit-perfect mixer mode. */
+    NO_BP_MODE,
+    /** The option is switched off in Settings. */
+    DISABLED,
+    /** Android accepted a bit-perfect mixer configuration for the device. */
+    ACTIVE,
+    /** The option is on and the device supports it, but Android refused every configuration we tried. */
+    REFUSED,
+}
+
+/** What the user can be told about the output path: which device, and what the bit-perfect mixer is doing. */
+data class OutputInfo(
+    val device: String? = null,
+    val usb: Boolean = false,
+    val state: BpState = BpState.NO_DEVICE,
+    /** The mixer format that was accepted, e.g. "PCM 24-bit packed · 96 kHz · 2 ch". */
+    val applied: String? = null,
+    /** Every bit-perfect format the device lists. */
+    val formats: List<String> = emptyList(),
+) {
+    val bitPerfect: Boolean get() = state == BpState.ACTIVE
+    val supported: Boolean get() = state == BpState.ACTIVE || state == BpState.REFUSED || state == BpState.DISABLED
+}
 
 /**
  * Android 14+ can route a USB DAC through a "bit-perfect" mixer: the app's PCM reaches the DAC untouched, at the
- * track's native sample rate. This asks for that mode when a USB audio device is connected and picks the supported
- * mixer attributes closest to the track.
+ * track's native sample rate. This asks for that mode when a USB audio device is connected, tries the device's
+ * supported formats from the best match to the worst, and checks with the system that the choice was really kept.
  */
 object BitPerfect {
     private val _info = MutableStateFlow(OutputInfo())
@@ -30,31 +57,70 @@ object BitPerfect {
         it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET
     }
 
-    /** Applies (or clears) the preference for a track played at [sampleRate] Hz. Safe to call often and on any API level. */
-    fun apply(ctx: Context, enabled: Boolean, sampleRate: Int) {
+    private fun encodingName(e: Int) = when (e) {
+        AudioFormat.ENCODING_PCM_16BIT -> "PCM 16-bit"
+        AudioFormat.ENCODING_PCM_24BIT_PACKED -> "PCM 24-bit packed"
+        AudioFormat.ENCODING_PCM_32BIT -> "PCM 32-bit"
+        AudioFormat.ENCODING_PCM_FLOAT -> "PCM float"
+        AudioFormat.ENCODING_PCM_8BIT -> "PCM 8-bit"
+        else -> "encoding $e"
+    }
+
+    private fun bitsOf(e: Int) = when (e) {
+        AudioFormat.ENCODING_PCM_16BIT -> 16
+        AudioFormat.ENCODING_PCM_24BIT_PACKED -> 24
+        AudioFormat.ENCODING_PCM_32BIT, AudioFormat.ENCODING_PCM_FLOAT -> 32
+        else -> 8
+    }
+
+    private fun describe(a: AudioMixerAttributes): String {
+        val f = a.format
+        val ch = Integer.bitCount(f.channelMask)
+        return "${encodingName(f.encoding)} · ${f.sampleRate / 1000f} kHz".replace(".0 kHz", " kHz") + if (ch > 0) " · $ch ch" else ""
+    }
+
+    /**
+     * Applies (or clears) the preference for a track played at [sampleRate] Hz with [bitDepth] bits (0 = unknown).
+     * [preferFloat] says the player outputs 32-bit float. Safe to call often and on any API level.
+     */
+    fun apply(ctx: Context, enabled: Boolean, sampleRate: Int, bitDepth: Int, preferFloat: Boolean) {
         val am = ctx.getSystemService(AudioManager::class.java) ?: return
         val dev = usb(am)
         val name = (dev ?: outputs(am).firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP })
             ?.productName?.toString()?.takeIf { it.isNotBlank() }
-        if (dev == null || Build.VERSION.SDK_INT < 34) {
-            _info.value = OutputInfo(name, usb = dev != null, bitPerfect = false, supported = false)
-            return
-        }
+        if (dev == null) { _info.value = OutputInfo(name, usb = false, state = BpState.NO_DEVICE); return }
+        if (Build.VERSION.SDK_INT < 34) { _info.value = OutputInfo(name, usb = true, state = BpState.OLD_ANDROID); return }
         try {
-            val bp = am.getSupportedMixerAttributes(dev)
-                .filter { it.mixerBehavior == AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT }
-            if (bp.isEmpty()) { _info.value = OutputInfo(name, true, false, false); return }
+            val bp = am.getSupportedMixerAttributes(dev).filter { it.mixerBehavior == AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT }
+            val formats = bp.map(::describe).distinct()
+            if (bp.isEmpty()) { _info.value = OutputInfo(name, true, BpState.NO_BP_MODE); return }
             if (!enabled) {
                 am.clearPreferredMixerAttributes(attrs, dev)
-                _info.value = OutputInfo(name, true, false, true)
+                _info.value = OutputInfo(name, true, BpState.DISABLED, formats = formats)
                 return
             }
-            val pick = bp.firstOrNull { it.format.sampleRate == sampleRate } ?: bp.maxByOrNull { it.format.sampleRate } ?: return
-            val ok = am.setPreferredMixerAttributes(attrs, dev, pick)
-            _info.value = OutputInfo(name, true, ok, true)
+            // Best match first: same sample rate, then the bit depth the player will really send.
+            val wantBits = if (preferFloat) 32 else if (bitDepth > 16) 24 else 16
+            val candidates = bp.sortedWith(
+                compareBy<AudioMixerAttributes>(
+                    { kotlin.math.abs(it.format.sampleRate - sampleRate) },
+                    { if (preferFloat && it.format.encoding == AudioFormat.ENCODING_PCM_FLOAT) 0 else 1 },
+                    { kotlin.math.abs(bitsOf(it.format.encoding) - wantBits) },
+                    { -Integer.bitCount(it.format.channelMask) },
+                )
+            )
+            var chosen: AudioMixerAttributes? = null
+            for (c in candidates.take(8)) {
+                if (am.setPreferredMixerAttributes(attrs, dev, c)) { chosen = c; break }
+            }
+            // Ask the system what it kept: the call can report success and still not stick.
+            val kept = if (chosen != null) am.getPreferredMixerAttributes(attrs, dev) else null
+            _info.value = if (kept != null) OutputInfo(name, true, BpState.ACTIVE, describe(kept), formats)
+            else OutputInfo(name, true, BpState.REFUSED, formats = formats)
+            android.util.Log.i("NebulaBitPerfect", "device=$name state=${_info.value.state} applied=${_info.value.applied} formats=$formats")
         } catch (e: Exception) {
             android.util.Log.w("NebulaBitPerfect", "mixer attributes failed", e)
-            _info.value = OutputInfo(name, true, false, true)
+            _info.value = OutputInfo(name, true, BpState.REFUSED)
         }
     }
 }

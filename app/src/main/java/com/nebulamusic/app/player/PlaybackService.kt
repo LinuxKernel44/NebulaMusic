@@ -89,7 +89,8 @@ class PlaybackService : MediaSessionService() {
 
     private fun applyOutput(item: MediaItem?) {
         val c = (application as NebulaApp).container
-        BitPerfect.apply(this, c.prefs.bitPerfect.value, item?.track()?.samplingRate ?: 0)
+        val t = item?.track()
+        BitPerfect.apply(this, c.prefs.bitPerfect.value, t?.samplingRate ?: 0, t?.bitDepth ?: 0, c.prefs.hiResOutput.value)
     }
 
     private fun flushScrobble(c: com.nebulamusic.app.data.AppContainer) {
@@ -251,6 +252,19 @@ class PlaybackService : MediaSessionService() {
         }
         scope.launch { container.prefs.replayGain.collect { applyReplayGain(exo.currentMediaItem) } }
         scope.launch { container.prefs.bitPerfect.collect { applyOutput(exo.currentMediaItem) } }
+        // A DAC plugged in (or out) while playing: redo the routing. Also once the AudioTrack really exists.
+        (getSystemService(android.media.AudioManager::class.java))?.registerAudioDeviceCallback(
+            object : android.media.AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) { applyOutput(exo.currentMediaItem) }
+                override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) { applyOutput(exo.currentMediaItem) }
+            },
+            android.os.Handler(mainLooper)
+        )
+        exo.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) {
+                scope.launch { kotlinx.coroutines.delay(250); applyOutput(exo.currentMediaItem) }
+            }
+        })
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

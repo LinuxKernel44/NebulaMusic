@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.nebulamusic.app.R
 import com.nebulamusic.app.data.*
 import com.nebulamusic.app.player.BitPerfect
+import com.nebulamusic.app.player.BpState
 import com.nebulamusic.app.glass.GlassIconButton
 
 @Composable
@@ -93,12 +94,13 @@ fun SettingsScreen(
                 SwitchRow(
                     stringResource(R.string.set_bitperfect),
                     stringResource(
-                        when {
-                            !out.usb -> R.string.set_bitperfect_nousb
-                            android.os.Build.VERSION.SDK_INT < 34 -> R.string.set_bitperfect_old
-                            !out.supported -> R.string.set_bitperfect_unsupported
-                            out.bitPerfect -> R.string.set_bitperfect_active
-                            else -> R.string.set_bitperfect_sub
+                        when (out.state) {
+                            BpState.NO_DEVICE -> R.string.set_bitperfect_nousb
+                            BpState.OLD_ANDROID -> R.string.set_bitperfect_old
+                            BpState.NO_BP_MODE -> R.string.set_bitperfect_unsupported
+                            BpState.ACTIVE -> R.string.set_bitperfect_active
+                            BpState.REFUSED -> R.string.set_bitperfect_refused
+                            BpState.DISABLED -> R.string.set_bitperfect_sub
                         }, out.device ?: ""
                     ),
                     bitPerfect
