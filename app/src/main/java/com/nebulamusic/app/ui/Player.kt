@@ -648,7 +648,7 @@ fun PlayerScreen(
                             FullWaveform(
                                 bins = bins, durationMs = binsDurMs, prevBins = prevBins, prevDurationMs = prevBinsDurMs,
                                 morph = morphAnim.value, playing = ui.active, scrubbing = scrubbing,
-                                cursorFrac = cursor.value, shape = if (bins != null) 1f else 0f,
+                                cursorFrac = cursor.value, shape = 1f,
                                 playedFrac = playedFrac,
                                 fg = fg,
                                 modifier = Modifier.fillMaxSize()
@@ -659,7 +659,7 @@ fun PlayerScreen(
                     Adaptive(sampler, Modifier.fillMaxSize()) { fg ->
                         WaveCursor(
                             playing = ui.active, scrubbing = scrubbing, cursorFrac = cursor.value,
-                            shape = if (bins != null) 1f else 0f, playedFrac = playedFrac, fg = fg,
+                            shape = 1f, playedFrac = playedFrac, fg = fg,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
