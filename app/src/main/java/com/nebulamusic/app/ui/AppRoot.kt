@@ -200,7 +200,10 @@ fun AppRoot(vm: MainViewModel) {
     SideEffect { GlassDefaults.accentState = accent }
 
     // Two independent glass sources: the app screens, and the full-screen player.
-    val backdrop = rememberLayerBackdrop()
+    val layerA = rememberLayerBackdrop()
+    val layerB = rememberLayerBackdrop()
+    // Each screen of the stack keeps the same glass layer for its whole life (even / odd depth), so going back never swaps it.
+    val backdrop = if (stack.size % 2 == 0) layerA else layerB
     val playerBackdrop = rememberLayerBackdrop()
 
     // Player presentation: 0 = fully open, 1 = fully closed. Follows the finger while swiping down.
@@ -214,7 +217,6 @@ fun AppRoot(vm: MainViewModel) {
     var backFade by remember { mutableFloatStateOf(0f) }
     var backOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var rootWidth by remember { mutableFloatStateOf(1080f) }
-    val prevBackdrop = rememberLayerBackdrop()
     val scrollMemory = remember { ScrollMemory() }
     val covering by remember { derivedStateOf { progress.value <= 0.001f } }
     var playerComposed by remember { mutableStateOf(false) }
@@ -286,9 +288,7 @@ fun AppRoot(vm: MainViewModel) {
             ) {
                 // Only one screen at a time may own the shared glass backdrop layer (the one behind gets its own).
                 val top = stack.lastOrNull()
-                val renderDest: @Composable (Dest?, Int) -> Unit = { d, depth ->
-                    val screenKey = if (d == null) "tab:$tab" else "$depth:$d"
-                    CompositionLocalProvider(LocalScreenKey provides screenKey) {
+                val renderDest: @Composable (Dest?) -> Unit = { d ->
                     when (d) {
                         is Dest.Login -> LoginScreen(
                             vm, servers.firstOrNull { it.id == d.serverId }, canCancel = true,
@@ -318,39 +318,45 @@ fun AppRoot(vm: MainViewModel) {
                             )
                         }
                     }
-                    }
                 }
                 if (needsLogin) LoginScreen(vm, null, canCancel = false, onDone = {}, onCancel = {})
                 else {
-                    // While going back, the previous screen is already there behind the shrinking one.
-                    if (backActive && stack.isNotEmpty()) {
-                        val prev = stack.getOrNull(stack.size - 2)
-                        Box(
-                            Modifier.fillMaxSize().graphicsLayer {
-                                val k = 0.94f + 0.06f * backP.value
-                                scaleX = k; scaleY = k
+                    // While going back, the previous screen is already there behind the shrinking one. Screens are keyed, so when the
+                    // gesture completes the very same composition (images, glass, lists) simply becomes the front one: no rebuild, no flicker.
+                    val topDepth = stack.size - 1 // -1 = the tab root
+                    val first = if (backActive && stack.isNotEmpty()) topDepth - 1 else topDepth
+                    for (depth in first..topDepth) {
+                        val d = stack.getOrNull(depth)
+                        val isTop = depth == topDepth
+                        val k = if (d == null) "tab:$tab" else "$depth:$d"
+                        key(k) {
+                            Box(
+                                if (isTop) Modifier.fillMaxSize().graphicsLayer {
+                                    val p = backP.value
+                                    val sc = 1f - 0.42f * p
+                                    scaleX = sc; scaleY = sc
+                                    // The point that was under the finger when the gesture began stays under the finger.
+                                    transformOrigin = TransformOrigin(
+                                        (backOrigin.x / rootWidth).coerceIn(0f, 1f), (backOrigin.y / rootHeight).coerceIn(0f, 1f)
+                                    )
+                                    translationX = backFx + 70.dp.toPx() * backFade
+                                    translationY = backFy * 0.8f
+                                    alpha = (1f - 0.12f * p) * (1f - backFade)
+                                    shape = RoundedCornerShape((34f * p).dp)
+                                    clip = p > 0f
+                                } else Modifier.fillMaxSize().graphicsLayer {
+                                    val kk = 0.94f + 0.06f * backP.value
+                                    scaleX = kk; scaleY = kk
+                                }
+                            ) {
+                                CompositionLocalProvider(
+                                    LocalGlassBackdrop provides (if ((depth + 1) % 2 == 0) layerA else layerB),
+                                    LocalScreenKey provides k,
+                                ) { renderDest(d) }
+                                if (!isTop) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f * (1f - backP.value))))
                             }
-                        ) {
-                            CompositionLocalProvider(LocalGlassBackdrop provides prevBackdrop) { renderDest(prev, stack.size - 2) }
-                            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f * (1f - backP.value))))
                         }
                     }
-                    Box(
-                        Modifier.fillMaxSize().graphicsLayer {
-                            val p = backP.value
-                            val sc = 1f - 0.42f * p
-                            scaleX = sc; scaleY = sc
-                            // The point that was under the finger when the gesture began stays under the finger.
-                            transformOrigin = TransformOrigin(
-                                (backOrigin.x / rootWidth).coerceIn(0f, 1f), (backOrigin.y / rootHeight).coerceIn(0f, 1f)
-                            )
-                            translationX = backFx + 70.dp.toPx() * backFade
-                            translationY = backFy * 0.8f
-                            alpha = (1f - 0.12f * p) * (1f - backFade)
-                            shape = RoundedCornerShape((34f * p).dp)
-                            clip = p > 0f
-                        }
-                    ) { renderDest(top, stack.size - 1) }
                 }
             }
 
