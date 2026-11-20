@@ -43,6 +43,7 @@ private class Resp(
     val artistInfo2: ApiArtistInfo? = null,
     val topSongs: ApiSongs? = null,
     val lyricsList: ApiLyricsList? = null,
+    val scanStatus: ApiScanStatus? = null,
 )
 
 @Serializable private class ApiArtists(val index: List<ApiIndex> = emptyList())
@@ -134,6 +135,7 @@ private class ApiArtistInfo(
     val similarArtist: List<ApiArtist> = emptyList(),
 )
 
+@Serializable private class ApiScanStatus(val scanning: Boolean = false, val count: Int = 0)
 @Serializable private class ApiLyricsList(val structuredLyrics: List<ApiStructuredLyrics> = emptyList())
 @Serializable private class ApiStructuredLyrics(val synced: Boolean = false, val line: List<ApiLine> = emptyList())
 @Serializable private class ApiLine(val start: Long? = null, val value: String = "")
@@ -335,6 +337,17 @@ class Session(
         call("scrobble", "id" to id, "submission" to submission.toString(), "time" to timeMs.toString())
     }
 
+    /** Asks the server to look for new / changed files. [full] re-reads every file (slow); needs an admin account. */
+    suspend fun startScan(full: Boolean): ScanProgress {
+        val r = call("startScan", "fullScan" to if (full) "true" else null).scanStatus
+        return ScanProgress(r?.scanning ?: true, r?.count ?: 0)
+    }
+
+    suspend fun scanStatus(): ScanProgress {
+        val r = call("getScanStatus").scanStatus
+        return ScanProgress(r?.scanning ?: false, r?.count ?: 0)
+    }
+
     suspend fun lyrics(id: String): Lyrics? {
         val l = runCatching { call("getLyricsBySongId", "id" to id).lyricsList?.structuredLyrics }.getOrNull()
             ?.maxByOrNull { if (it.synced) 1 else 0 } ?: return null
@@ -352,6 +365,8 @@ class Session(
         }
     }
 }
+
+data class ScanProgress(val scanning: Boolean, val count: Int)
 
 enum class StarKind(val param: String) { SONG("id"), ALBUM("albumId"), ARTIST("artistId") }
 

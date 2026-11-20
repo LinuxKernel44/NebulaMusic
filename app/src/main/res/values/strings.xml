@@ -202,6 +202,13 @@
     <string name="set_backup">BACKUP</string>
     <string name="set_backup_note">Exports your settings and the server list, without passwords.</string>
     <string name="set_about">ABOUT</string>
+    <string name="set_library">SERVER LIBRARY</string>
+    <string name="set_scan_quick">Scan for new and changed files</string>
+    <string name="set_scan_full">Full rescan (re-read every file)</string>
+    <string name="set_scan_note">Use this after adding songs or a cover.jpg / folder.jpg to the server. A full rescan is slower. Needs an admin account.</string>
+    <string name="set_scan_running">Scanning… %1$d files seen so far</string>
+    <string name="set_scan_done">Scan finished. Library reloaded.</string>
+    <string name="set_scan_failed">Scan failed: %1$s</string>
     <string name="set_icon">APP ICON</string>
     <string name="set_icon_note">Your launcher may take a few seconds to show the new icon.</string>
     <string name="icon_nebula">Nebula</string>

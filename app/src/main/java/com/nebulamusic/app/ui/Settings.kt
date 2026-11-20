@@ -123,6 +123,20 @@ fun SettingsScreen(
                 Text(stringResource(R.string.set_cache_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 ActionRow(Icons.Rounded.DeleteSweep, stringResource(R.string.set_delete_downloads, fmtBytes(dlBytes)), { confirmDownloads = true })
 
+                SectionTitle(stringResource(R.string.set_library))
+                val scan by vm.scan.collectAsState()
+                ActionRow(Icons.Rounded.Refresh, stringResource(R.string.set_scan_quick)) { vm.scanLibrary(false) }
+                ActionRow(Icons.Rounded.Sync, stringResource(R.string.set_scan_full)) { vm.scanLibrary(true) }
+                Text(
+                    when (val sc = scan) {
+                        is MainViewModel.ScanUi.Running -> stringResource(R.string.set_scan_running, sc.count)
+                        is MainViewModel.ScanUi.Done -> stringResource(R.string.set_scan_done)
+                        is MainViewModel.ScanUi.Failed -> stringResource(R.string.set_scan_failed, sc.message)
+                        else -> stringResource(R.string.set_scan_note)
+                    },
+                    color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                )
+
                 SectionTitle(stringResource(R.string.set_section_save))
                 OptionRow(ask, stringResource(R.string.set_dest_ask), stringResource(R.string.set_dest_ask_sub)) { vm.setExportAsk(true) }
                 OptionRow(!ask, stringResource(R.string.set_dest_fixed), stringResource(R.string.set_dest_fixed_sub)) { vm.setExportAsk(false) }

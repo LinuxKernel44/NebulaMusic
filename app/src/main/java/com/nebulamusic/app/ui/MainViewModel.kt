@@ -244,6 +244,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { runCatching { api { it.removeFromPlaylist(playlistId, listOf(index)) } }; refreshPlaylists(); done() }
     }
 
+    // ---- Server library scan ----------------------------------------------------------------
+    sealed interface ScanUi {
+        data object Idle : ScanUi
+        data class Running(val count: Int, val full: Boolean) : ScanUi
+        data object Done : ScanUi
+        data class Failed(val message: String) : ScanUi
+    }
+    private val _scan = MutableStateFlow<ScanUi>(ScanUi.Idle)
+    val scan: StateFlow<ScanUi> = _scan.asStateFlow()
+
+    /** Tells the server to scan its music folders (new covers, new files...), waits for it, then reloads everything. */
+    fun scanLibrary(full: Boolean) {
+        if (_scan.value is ScanUi.Running) return
+        viewModelScope.launch {
+            _scan.value = ScanUi.Running(0, full)
+            try {
+                var p = api { it.startScan(full) }
+                var guard = 0
+                while (p.scanning && guard++ < 900) {
+                    _scan.value = ScanUi.Running(p.count, full)
+                    kotlinx.coroutines.delay(2000)
+                    p = api { it.scanStatus() }
+                }
+                _scan.value = ScanUi.Done
+                albums.reset(); songs.reset(); refreshAll()
+            } catch (e: Exception) {
+                _scan.value = ScanUi.Failed(errorOf(e).message)
+            }
+        }
+    }
+
     // ---- Offline ---------------------------------------------------------------------------
     fun download(list: List<Track>) {
         list.filter { !localPaths.value.containsKey(it.id) && !downloadProgress.value.containsKey(it.id) }.forEach {
