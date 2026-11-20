@@ -9,6 +9,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -204,6 +206,15 @@ fun AppRoot(vm: MainViewModel) {
     // Player presentation: 0 = fully open, 1 = fully closed. Follows the finger while swiping down.
     val scope = rememberCoroutineScope()
     val progress = remember { Animatable(1f) }
+    // Swipe-right-to-go-back state (see backSwipe).
+    val backP = remember { Animatable(0f) }
+    var backActive by remember { mutableStateOf(false) }
+    var backFx by remember { mutableFloatStateOf(0f) }
+    var backFy by remember { mutableFloatStateOf(0f) }
+    var backFade by remember { mutableFloatStateOf(0f) }
+    var backOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var rootWidth by remember { mutableFloatStateOf(1080f) }
+    val prevBackdrop = rememberLayerBackdrop()
     val covering by remember { derivedStateOf { progress.value <= 0.001f } }
     var playerComposed by remember { mutableStateOf(false) }
     var rootHeight by remember { mutableFloatStateOf(2000f) }
@@ -243,40 +254,98 @@ fun AppRoot(vm: MainViewModel) {
         LocalArtTheme provides art,
         LocalSession provides session,
     ) {
-        Box(Modifier.fillMaxSize().background(Bg).onSizeChanged { rootHeight = it.height.toFloat() }) {
+        Box(Modifier.fillMaxSize().background(Bg).onSizeChanged { rootHeight = it.height.toFloat(); rootWidth = it.width.toFloat() }) {
           Box(Modifier.fillMaxSize().layerBackdrop(overlayBackdrop).background(Bg)) {
-            Box(Modifier.fillMaxSize().imePadding().graphicsLayer { alpha = if (covering) 0f else 1f }) {
-                // Only one screen at a time may own the shared glass backdrop layer.
+            Box(
+                Modifier.fillMaxSize().imePadding().graphicsLayer { alpha = if (covering) 0f else 1f }
+                    .backSwipe(
+                        enabled = !needsLogin && !playerOpen && !sheetOpen && !selecting && stack.isNotEmpty() && stack.last() !is Dest.Login,
+                        onStart = { p -> backOrigin = p; backFx = 0f; backFy = 0f; backFade = 0f; backActive = true },
+                        onDrag = { dx, dy ->
+                            backFx = dx.coerceAtLeast(0f); backFy = dy
+                            val prog = (backFx / (rootWidth * 0.75f)).coerceIn(0f, 1f)
+                            scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { backP.snapTo(prog) }
+                        },
+                        onEnd = { vx ->
+                            scope.launch {
+                                if (backP.value > 0.28f || vx > 1100f) {
+                                    // Finish: keep shrinking toward the finger while fading out, then really go back.
+                                    launch { backFade = 0f; androidx.compose.animation.core.animate(0f, 1f, animationSpec = tween(240)) { v, _ -> backFade = v } }
+                                    backP.animateTo(1f, tween(240))
+                                    if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex)
+                                } else {
+                                    backP.animateTo(0f, spring(dampingRatio = 0.75f, stiffness = 500f))
+                                }
+                                backActive = false; backFx = 0f; backFy = 0f; backFade = 0f
+                                backP.snapTo(0f)
+                            }
+                        },
+                    )
+            ) {
+                // Only one screen at a time may own the shared glass backdrop layer (the one behind gets its own).
                 val top = stack.lastOrNull()
-                if (needsLogin) LoginScreen(vm, null, canCancel = false, onDone = {}, onCancel = {})
-                else when (top) {
-                    is Dest.Login -> LoginScreen(
-                        vm, servers.firstOrNull { it.id == top.serverId }, canCancel = true,
-                        onDone = { stack.removeAt(stack.lastIndex); vm.retryConnection() }, onCancel = { stack.removeAt(stack.lastIndex) }
-                    )
-                    Dest.Settings -> SettingsScreen(
-                        vm, onBack = { stack.removeAt(stack.lastIndex) },
-                        onPickFolder = { pendingExport = null; folderLauncher.launch(null) },
-                        onAddServer = { stack.add(Dest.Login(null)) },
-                        onEditServer = { stack.add(Dest.Login(it.id)) },
-                        onExport = { exportLauncher.launch("nebulamusic-settings.json") },
-                        onImport = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) },
-                    )
-                    is Dest.Album -> AlbumScreen(vm, top.id, nav, { stack.removeAt(stack.lastIndex) }, { menuTrack = it })
-                    is Dest.Artist -> ArtistScreen(vm, top.id, nav, { stack.removeAt(stack.lastIndex) }, { menuTrack = it })
-                    is Dest.Playlist -> PlaylistScreen(
-                        vm, top.id, top.name, { stack.removeAt(stack.lastIndex) }, { menuTrack = it },
-                        onRename = { id, name -> dialog = PlaylistDialog.Rename(id, name) }, version = plVersion
-                    )
-                    is Dest.Genre -> GenreScreen(vm, top.name, nav, { stack.removeAt(stack.lastIndex) })
-                    null -> when (tab) {
-                        Tab.HOME -> HomeScreen(vm, nav)
-                        Tab.SEARCH -> SearchScreen(vm, nav) { menuTrack = it }
-                        Tab.LIBRARY -> LibraryScreen(
-                            vm, nav, section, { section = it }, onMenu = { menuTrack = it },
-                            onNewPlaylist = { dialog = PlaylistDialog.Create(emptyList()) },
+                val renderDest: @Composable (Dest?) -> Unit = { d ->
+                    when (d) {
+                        is Dest.Login -> LoginScreen(
+                            vm, servers.firstOrNull { it.id == d.serverId }, canCancel = true,
+                            onDone = { stack.removeAt(stack.lastIndex); vm.retryConnection() }, onCancel = { stack.removeAt(stack.lastIndex) }
                         )
+                        Dest.Settings -> SettingsScreen(
+                            vm, onBack = { stack.removeAt(stack.lastIndex) },
+                            onPickFolder = { pendingExport = null; folderLauncher.launch(null) },
+                            onAddServer = { stack.add(Dest.Login(null)) },
+                            onEditServer = { stack.add(Dest.Login(it.id)) },
+                            onExport = { exportLauncher.launch("nebulamusic-settings.json") },
+                            onImport = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) },
+                        )
+                        is Dest.Album -> AlbumScreen(vm, d.id, nav, { stack.removeAt(stack.lastIndex) }, { menuTrack = it })
+                        is Dest.Artist -> ArtistScreen(vm, d.id, nav, { stack.removeAt(stack.lastIndex) }, { menuTrack = it })
+                        is Dest.Playlist -> PlaylistScreen(
+                            vm, d.id, d.name, { stack.removeAt(stack.lastIndex) }, { menuTrack = it },
+                            onRename = { id, name -> dialog = PlaylistDialog.Rename(id, name) }, version = plVersion
+                        )
+                        is Dest.Genre -> GenreScreen(vm, d.name, nav, { stack.removeAt(stack.lastIndex) })
+                        null -> when (tab) {
+                            Tab.HOME -> HomeScreen(vm, nav)
+                            Tab.SEARCH -> SearchScreen(vm, nav) { menuTrack = it }
+                            Tab.LIBRARY -> LibraryScreen(
+                                vm, nav, section, { section = it }, onMenu = { menuTrack = it },
+                                onNewPlaylist = { dialog = PlaylistDialog.Create(emptyList()) },
+                            )
+                        }
                     }
+                }
+                if (needsLogin) LoginScreen(vm, null, canCancel = false, onDone = {}, onCancel = {})
+                else {
+                    // While going back, the previous screen is already there behind the shrinking one.
+                    if (backActive && stack.isNotEmpty()) {
+                        val prev = stack.getOrNull(stack.size - 2)
+                        Box(
+                            Modifier.fillMaxSize().graphicsLayer {
+                                val k = 0.94f + 0.06f * backP.value
+                                scaleX = k; scaleY = k
+                            }
+                        ) {
+                            CompositionLocalProvider(LocalGlassBackdrop provides prevBackdrop) { renderDest(prev) }
+                            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f * (1f - backP.value))))
+                        }
+                    }
+                    Box(
+                        Modifier.fillMaxSize().graphicsLayer {
+                            val p = backP.value
+                            val sc = 1f - 0.42f * p
+                            scaleX = sc; scaleY = sc
+                            // The point that was under the finger when the gesture began stays under the finger.
+                            transformOrigin = TransformOrigin(
+                                (backOrigin.x / rootWidth).coerceIn(0f, 1f), (backOrigin.y / rootHeight).coerceIn(0f, 1f)
+                            )
+                            translationX = backFx + 70.dp.toPx() * backFade
+                            translationY = backFy * 0.8f
+                            alpha = (1f - 0.12f * p) * (1f - backFade)
+                            shape = RoundedCornerShape((34f * p).dp)
+                            clip = p > 0f
+                        }
+                    ) { renderDest(top) }
                 }
             }
 
@@ -465,6 +534,43 @@ private fun SelectionBar(
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.save), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
             }
+        }
+    }
+}
+
+
+/**
+ * Swipe right anywhere to go back. The gesture is ours only when it starts as a clearly horizontal, rightward drag that no
+ * child (a scrolling row, a slider) has consumed.
+ */
+private fun Modifier.backSwipe(
+    enabled: Boolean,
+    onStart: (androidx.compose.ui.geometry.Offset) -> Unit,
+    onDrag: (dx: Float, dy: Float) -> Unit,
+    onEnd: (velocityX: Float) -> Unit,
+): Modifier = if (!enabled) this else pointerInput(Unit) {
+    val slop = viewConfiguration.touchSlop
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+        tracker.addPosition(down.uptimeMillis, down.position)
+        var active = false
+        while (true) {
+            val ev = awaitPointerEvent()
+            val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+            if (!c.pressed) {
+                if (active) onEnd(tracker.calculateVelocity().x)
+                break
+            }
+            if (!active && c.isConsumed) break // a child is handling this gesture
+            tracker.addPosition(c.uptimeMillis, c.position)
+            val dx = c.position.x - down.position.x
+            val dy = c.position.y - down.position.y
+            if (!active) {
+                if (dx > slop * 1.5f && dx > kotlin.math.abs(dy) * 1.6f) { active = true; onStart(down.position) }
+                else if (kotlin.math.abs(dy) > slop * 2f || dx < -slop) break
+            }
+            if (active) { c.consume(); onDrag(dx, dy) }
         }
     }
 }
