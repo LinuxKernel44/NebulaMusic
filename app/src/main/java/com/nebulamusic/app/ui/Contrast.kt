@@ -85,7 +85,7 @@ fun Adaptive(
     val ver = sampler.version
     val target = remember(rect, ver) {
         val l = rect?.let { sampler.luminance(it) }
-        if (l != null && l > 0.16f) DarkInk else Color.White
+        if (l != null && l > 0.5f) DarkInk else Color.White
     }
     val color by animateColorAsState(target, tween(280), label = "adaptiveFg")
     // The measured rectangle is the content's own bounds (not the whole row), so a short title is

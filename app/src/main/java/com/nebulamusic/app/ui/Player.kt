@@ -92,9 +92,6 @@ import kotlin.math.sin
 
 enum class Tab { HOME, SEARCH, LIBRARY }
 
-/** The cover only covers the top part of the artwork zone, so it fades out well above the title. */
-private const val ART_HEIGHT_FRACTION = 0.76f
-
 private val PillBlack = Color.Black.copy(alpha = 0.86f)
 private val PillGlass = Color.White.copy(alpha = 0.14f)
 
@@ -449,47 +446,41 @@ fun PlayerScreen(
         ) {
             Crossfade(shown, animationSpec = tween(260), label = "artFade") { st ->
                 if (st != null) Box(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(listOf(st.tint, st.tint.copy(alpha = 0.55f).compositeOver(Color.Black), Color.Black))
-                    )
-                )
-                st.blur?.let {
-                    Image(
-                        it, null, contentScale = ContentScale.Crop, filterQuality = FilterQuality.Medium,
-                        modifier = Modifier.fillMaxSize().alpha(0.6f)
-                    )
-                }
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            0f to Color.Transparent, 0.45f to Color.Black.copy(alpha = 0.10f),
-                            0.75f to Color.Black.copy(alpha = 0.55f), 1f to Color.Black.copy(alpha = 0.92f)
+                    // Vivid blurred copy of the cover fills the screen; the whole cover sits on top as a square.
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(st.tint, Color.Black))))
+                    st.blur?.let {
+                        Image(
+                            it, null, contentScale = ContentScale.Crop, filterQuality = FilterQuality.Medium,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent, 0.35f to Color.Black.copy(alpha = 0.15f),
+                                0.5f to Color.Black.copy(alpha = 0.5f), 0.7f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.92f)
+                            )
                         )
                     )
-                )
-                AsyncImage(
-                    model = session?.coverUrl(st.beat.coverArt, 800), contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(with(density) { (artH * ART_HEIGHT_FRACTION).toDp() })
-                        .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(
-                                Brush.verticalGradient(
-                                    0.35f to Color.Black, 0.50f to Color.Black.copy(alpha = 0.92f),
-                                    0.64f to Color.Black.copy(alpha = 0.68f), 0.78f to Color.Black.copy(alpha = 0.36f),
-                                    0.90f to Color.Black.copy(alpha = 0.12f), 1f to Color.Transparent
-                                ),
-                                blendMode = BlendMode.DstIn
-                            )
-                        }
-                )
-                Box(
-                    Modifier.fillMaxWidth().height(110.dp).background(
-                        Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent))
+                    // Square cover, full width, fully visible (never cropped to a tall box); its bottom edge melts into the blur.
+                    val sidePx = if (artH > 0 && rootSize.width > 0) minOf(rootSize.width, artH + with(density) { 40.dp.roundToPx() }) else rootSize.width
+                    AsyncImage(
+                        model = session?.coverUrl(st.beat.coverArt, 800), contentDescription = null, contentScale = ContentScale.Crop,
+                        modifier = Modifier.align(Alignment.TopCenter).size(with(density) { sidePx.toDp() })
+                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    Brush.verticalGradient(0.80f to Color.Black, 1f to Color.Transparent),
+                                    blendMode = BlendMode.DstIn
+                                )
+                            }
                     )
-                )
-
+                    Box(
+                        Modifier.fillMaxWidth().height(110.dp).background(
+                            Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent))
+                        )
+                    )
                 }
             }
         }
@@ -613,7 +604,7 @@ fun PlayerScreen(
                 val waveBackdrop = rememberLayerBackdrop()
                 val transportBackdrop = rememberCombinedBackdrop(playerBackdrop, waveBackdrop)
                 Box(
-                    Modifier.fillMaxWidth().height(160.dp)
+                    Modifier.fillMaxWidth().height(144.dp)
                         // Scrubbing only starts when the finger lands on the cursor; taps elsewhere do nothing.
                         .pointerInput(durationMs) {
                             val m = WAVE_MARGIN.toPx()
@@ -701,31 +692,30 @@ fun PlayerScreen(
                     }
                 }
 
-                // Times + format (no pills)
+                // Times and format on a single row
                 val shownMs = if (scrubbing) (cursor.value * durationMs).toLong() else posSec * 1000
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Adaptive(sampler, Modifier.height(32.dp).widthIn(min = 56.dp), Alignment.CenterStart) { fg ->
+                val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Adaptive(sampler, Modifier.height(36.dp).widthIn(min = 56.dp), Alignment.CenterStart) { fg ->
                         Text(fmtMs(shownMs), color = fg, fontWeight = FontWeight.Bold, fontSize = timeSp.sp, modifier = Modifier.padding(horizontal = 4.dp))
                     }
-                    Adaptive(sampler, Modifier.height(32.dp).widthIn(min = 56.dp), Alignment.CenterEnd) { fg ->
-                        Text(fmtMs(durationMs), color = fg, fontWeight = FontWeight.Bold, fontSize = timeSp.sp, modifier = Modifier.padding(horizontal = 4.dp))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Adaptive(
+                            sampler,
+                            Modifier.height(36.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
+                                interactionSource = null, indication = null, onClick = {},
+                                onLongClick = { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onAudioInfo() }
+                            ).padding(horizontal = 6.dp),
+                            Alignment.Center
+                        ) { fg ->
+                            Text(
+                                fmtFormat(beat, ui.sampleRate, ui.bitrate), color = fg.copy(alpha = 0.85f),
+                                fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.3.sp, maxLines = 1
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.height(2.dp))
-                val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Adaptive(
-                        sampler,
-                        Modifier.height(36.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
-                            interactionSource = null, indication = null, onClick = {},
-                            onLongClick = { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onAudioInfo() }
-                        ).padding(horizontal = 14.dp),
-                        Alignment.Center
-                    ) { fg ->
-                        Text(
-                            fmtFormat(beat, ui.sampleRate, ui.bitrate), color = fg.copy(alpha = 0.85f),
-                            fontWeight = FontWeight.SemiBold, fontSize = 12.sp, letterSpacing = 0.5.sp
-                        )
+                    Adaptive(sampler, Modifier.height(36.dp).widthIn(min = 56.dp), Alignment.CenterEnd) { fg ->
+                        Text(fmtMs(durationMs), color = fg, fontWeight = FontWeight.Bold, fontSize = timeSp.sp, modifier = Modifier.padding(horizontal = 4.dp))
                     }
                 }
             }
