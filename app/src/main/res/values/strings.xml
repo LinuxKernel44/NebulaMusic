@@ -205,6 +205,8 @@
     <string name="set_library">SERVER LIBRARY</string>
     <string name="set_scan_quick">Scan for new and changed files</string>
     <string name="set_scan_full">Full rescan (re-read every file)</string>
+    <string name="set_clear_covers">Clear cover cache (re-download all covers)</string>
+    <string name="set_covers_cleared">Cover cache cleared</string>
     <string name="set_scan_note">Use this after adding songs or a cover.jpg / folder.jpg to the server. A full rescan is slower. Needs an admin account.</string>
     <string name="set_scan_running">Scanning… %1$d files seen so far</string>
     <string name="set_scan_done">Scan finished. Library reloaded.</string>

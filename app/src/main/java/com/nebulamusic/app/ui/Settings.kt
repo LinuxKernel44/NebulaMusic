@@ -137,6 +137,12 @@ fun SettingsScreen(
                     color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                 )
 
+                val coverCtx = androidx.compose.ui.platform.LocalContext.current
+                ActionRow(Icons.Rounded.Image, stringResource(R.string.set_clear_covers)) {
+                    vm.clearCoverCache()
+                    android.widget.Toast.makeText(coverCtx, R.string.set_covers_cleared, android.widget.Toast.LENGTH_SHORT).show()
+                }
+
                 SectionTitle(stringResource(R.string.set_section_save))
                 OptionRow(ask, stringResource(R.string.set_dest_ask), stringResource(R.string.set_dest_ask_sub)) { vm.setExportAsk(true) }
                 OptionRow(!ask, stringResource(R.string.set_dest_fixed), stringResource(R.string.set_dest_fixed_sub)) { vm.setExportAsk(false) }

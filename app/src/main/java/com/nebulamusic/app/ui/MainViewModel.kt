@@ -268,11 +268,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     p = api { it.scanStatus() }
                 }
                 _scan.value = ScanUi.Done
+                clearCoverCache() // covers may have changed on the server
                 albums.reset(); songs.reset(); refreshAll()
             } catch (e: Exception) {
                 _scan.value = ScanUi.Failed(errorOf(e).message)
             }
         }
+    }
+
+    /** Forgets every downloaded cover so changed artwork is fetched again. */
+    fun clearCoverCache() {
+        val loader = coil.Coil.imageLoader(getApplication())
+        loader.memoryCache?.clear()
+        loader.diskCache?.clear()
     }
 
     // ---- Offline ---------------------------------------------------------------------------
