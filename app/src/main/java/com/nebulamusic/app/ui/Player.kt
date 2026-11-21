@@ -541,7 +541,7 @@ fun PlayerScreen(
 
                 // Like / dislike / more (no pills)
                 val isFav = beat != null && beat.id in favs
-                Row(Modifier.graphicsLayer { alpha = controlsAlpha.value }, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Adaptive(
                         sampler,
                         Modifier.width(50.dp).height(40.dp).clip(RoundedCornerShape(50))
@@ -570,7 +570,7 @@ fun PlayerScreen(
                 Spacer(Modifier.height(12.dp))
 
                 // Queue · play mode · shuffle (glass)
-                Row(Modifier.graphicsLayer { alpha = controlsAlpha.value }, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     GlassIconButton(onQueue, playerBackdrop, size = 42.dp, width = 70.dp) {
                         Icon(Icons.Rounded.QueueMusic, stringResource(R.string.queue), tint = Color.White.copy(alpha = 0.9f))
                     }
@@ -676,7 +676,7 @@ fun PlayerScreen(
                     BoxWithConstraints(Modifier.align(Alignment.Center).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         val k = (maxWidth.value / 360f).coerceAtMost(1f)
                         Row(
-                            Modifier,
+                            Modifier.graphicsLayer { alpha = controlsAlpha.value },
                             horizontalArrangement = Arrangement.spacedBy(6.dp * k),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
