@@ -67,6 +67,11 @@ class Prefs(ctx: Context) {
     val listenBrainzListens: StateFlow<Boolean> = _lbListens.asStateFlow()
     fun setListenBrainzListens(v: Boolean) { sp.edit().putBoolean("lb_listens", v).apply(); _lbListens.value = v }
 
+    /** The Library sort of each category, e.g. "ALBUMS=YEAR:1,SONGS=NAME:0" (parsed by the UI). */
+    var librarySorts: String
+        get() = sp.getString("library_sorts", "").orEmpty()
+        set(v) { sp.edit().putString("library_sorts", v).apply() }
+
     private val _lightGlass = flow(sp.getBoolean("light_glass", false))
     /** Cheaper glass (no refraction / shadows): cooler phone, longer battery. */
     val lightGlass: StateFlow<Boolean> = _lightGlass.asStateFlow()

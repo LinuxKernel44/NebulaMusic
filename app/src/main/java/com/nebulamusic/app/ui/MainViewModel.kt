@@ -106,9 +106,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val favorites: StateFlow<Load<SearchResults>> = _favorites.asStateFlow()
 
     /** The chosen order of each Library list (default: by name). */
-    val sorts = MutableStateFlow<Map<LibSection, SortSpec>>(emptyMap())
+    val sorts = MutableStateFlow(readSorts(c.prefs.librarySorts))
     fun sortOf(section: LibSection) = sorts.value[section] ?: SortSpec()
-    fun setSort(section: LibSection, spec: SortSpec) { sorts.value = sorts.value + (section to spec) }
+    fun setSort(section: LibSection, spec: SortSpec) {
+        sorts.value = sorts.value + (section to spec)
+        c.prefs.librarySorts = sorts.value.entries.joinToString(",") { "${it.key.name}=${it.value.key.name}:${if (it.value.reverse) 1 else 0}" }
+    }
+
+    private fun readSorts(raw: String): Map<LibSection, SortSpec> = raw.split(',').mapNotNull { part ->
+        runCatching {
+            val (sec, rest) = part.split('=')
+            val (key, rev) = rest.split(':')
+            LibSection.valueOf(sec) to SortSpec(SortKey.valueOf(key), rev == "1")
+        }.getOrNull()
+    }.filter { (sec, sp) -> sp.key in sortKeysFor(sec) }.toMap()
 
     // Orders the server can produce page by page are fetched that way; any other order (or a reversed one) needs the whole
     // list, loaded once in the background and sorted here.
