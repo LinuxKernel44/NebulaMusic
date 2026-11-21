@@ -43,7 +43,7 @@ const val MIN_LEVEL = 1
 const val MAX_LEVEL = 4
 
 /**
- * Pinch with two fingers to change the number of columns: spread = bigger covers (fewer columns), pinch = smaller.
+ * Pinch with two fingers to change the number of columns by one step: spread = bigger covers (fewer columns), pinch = smaller.
  * Ignored when a scroll or fling is running when the second finger lands, so scrolling never triggers it.
  */
 private fun Modifier.pinchLevels(level: State<Int>, onLevel: (Int) -> Unit, scrolling: () -> Boolean) = pointerInput(Unit) {
@@ -52,6 +52,7 @@ private fun Modifier.pinchLevels(level: State<Int>, onLevel: (Int) -> Unit, scro
         var base = 0f
         var active = false
         var ignored = false
+        var stepped = false
         do {
             val ev = awaitPointerEvent(PointerEventPass.Initial)
             val down = ev.changes.filter { it.pressed }
@@ -59,10 +60,11 @@ private fun Modifier.pinchLevels(level: State<Int>, onLevel: (Int) -> Unit, scro
                 val d = hypot(down[0].position.x - down[1].position.x, down[0].position.y - down[1].position.y)
                 if (!active) {
                     if (scrolling()) ignored = true else { active = true; base = d }
-                } else if (base > 0f) {
+                } else if (base > 0f && !stepped) {
+                    // One step per pinch: lift the fingers and pinch again to go further.
                     val r = d / base
-                    if (r > 1.25f && level.value > MIN_LEVEL) { onLevel(level.value - 1); base = d }
-                    else if (r < 0.8f && level.value < MAX_LEVEL) { onLevel(level.value + 1); base = d }
+                    if (r > 1.25f && level.value > MIN_LEVEL) { onLevel(level.value - 1); stepped = true }
+                    else if (r < 0.8f && level.value < MAX_LEVEL) { onLevel(level.value + 1); stepped = true }
                 }
                 if (active) ev.changes.forEach { it.consume() }
             }
