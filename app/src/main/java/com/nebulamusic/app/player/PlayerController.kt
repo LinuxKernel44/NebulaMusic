@@ -199,7 +199,15 @@ class PlayerController(
     fun skipTo(index: Int) = withController { it.seekToDefaultPosition(index); it.play() }
 
     fun togglePlay() = withController { if (it.playWhenReady && it.playbackState != Player.STATE_IDLE && it.playbackState != Player.STATE_ENDED) it.pause() else { if (it.playbackState == Player.STATE_IDLE) it.prepare(); it.play() } }
-    fun next() = withController { it.seekToNextMediaItem() }
+    /** Called when the user skips a track in its first moments (a negative signal for the automatic queue). */
+    var onSkip: ((Track) -> Unit)? = null
+
+    fun next() = withController {
+        val t = _state.value.track
+        val dur = it.duration.takeIf { d -> d != C.TIME_UNSET && d > 0 }
+        if (t != null && dur != null && it.currentPosition < dur * 0.3 && it.currentPosition < 45_000) onSkip?.invoke(t)
+        it.seekToNextMediaItem()
+    }
     fun previous() = withController { if (it.currentPosition > 3000) it.seekTo(0) else it.seekToPreviousMediaItem() }
     private var rampJob: Job? = null
     private fun ramp(to: Float, ms: Long, after: Long = 0L) {

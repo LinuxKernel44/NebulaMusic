@@ -52,6 +52,16 @@ class Prefs(ctx: Context) {
     val scrobble: StateFlow<Boolean> = _scrobble.asStateFlow()
     fun setScrobble(v: Boolean) { sp.edit().putBoolean("scrobble", v).apply(); _scrobble.value = v }
 
+    private val _autoplay = flow(sp.getBoolean("autoplay", true))
+    /** Keep adding coherent songs when the queue runs out. */
+    val autoplay: StateFlow<Boolean> = _autoplay.asStateFlow()
+    fun setAutoplay(v: Boolean) { sp.edit().putBoolean("autoplay", v).apply(); _autoplay.value = v }
+
+    private val _highAccuracy = flow(sp.getBoolean("high_accuracy", false))
+    /** Use the user's Last.fm account to choose the songs that are added automatically. */
+    val highAccuracy: StateFlow<Boolean> = _highAccuracy.asStateFlow()
+    fun setHighAccuracy(v: Boolean) { sp.edit().putBoolean("high_accuracy", v).apply(); _highAccuracy.value = v }
+
     private val _lightGlass = flow(sp.getBoolean("light_glass", false))
     /** Cheaper glass (no refraction / shadows): cooler phone, longer battery. */
     val lightGlass: StateFlow<Boolean> = _lightGlass.asStateFlow()
@@ -69,6 +79,7 @@ class Prefs(ctx: Context) {
         .put("grid", _grid.value).put("quality", _quality.value.name).put("rg", _replayGain.value.name)
         .put("crossfade", _crossfade.value).put("cache_mb", _cacheMb.value).put("bit_perfect", _bitPerfect.value)
         .put("hires_float", _hiRes.value).put("scrobble", _scrobble.value).put("light_glass", _lightGlass.value)
+        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value)
 
     fun restore(o: org.json.JSONObject) {
         if (o.has("grid")) setGrid(o.optBoolean("grid", true))
@@ -79,6 +90,8 @@ class Prefs(ctx: Context) {
         if (o.has("bit_perfect")) setBitPerfect(o.optBoolean("bit_perfect", false))
         if (o.has("hires_float")) setHiResOutput(o.optBoolean("hires_float", true))
         if (o.has("scrobble")) setScrobble(o.optBoolean("scrobble", true))
+        if (o.has("autoplay")) setAutoplay(o.optBoolean("autoplay", true))
+        if (o.has("high_accuracy")) setHighAccuracy(o.optBoolean("high_accuracy", false))
         if (o.has("light_glass")) setLightGlass(o.optBoolean("light_glass", false))
     }
 }

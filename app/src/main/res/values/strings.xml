@@ -226,4 +226,19 @@
     <string name="icon_aurora">Aurora</string>
     <string name="icon_vinyl">Vinyl</string>
     <string name="icon_glass">Glass</string>
+    <string name="set_autoplay">QUEUE</string>
+    <string name="set_autoplay_title">Endless queue</string>
+    <string name="set_autoplay_sub">When nothing is left to play, keep adding songs that fit what you are listening to.</string>
+    <string name="set_hiacc">High accuracy</string>
+    <string name="set_hiacc_sub">Use your Last.fm account to choose better matching songs. Only songs that exist in your library are added.</string>
+    <string name="lfm_intro">Create a free Last.fm API account, then paste its API key and shared secret. They stay on this phone (the secret is encrypted).</string>
+    <string name="lfm_get_key">Get an API key on last.fm</string>
+    <string name="lfm_api_key">API key</string>
+    <string name="lfm_secret">Shared secret</string>
+    <string name="lfm_secret_saved">Shared secret (saved, type to replace)</string>
+    <string name="lfm_connect">Connect to Last.fm</string>
+    <string name="lfm_approve">Approve NebulaMusic in the page that just opened, come back here, then tap Finish.</string>
+    <string name="lfm_finish">Finish connection</string>
+    <string name="lfm_connected">Connected as %1$s</string>
+    <string name="lfm_disconnect">Disconnect</string>
 </resources>

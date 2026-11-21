@@ -28,7 +28,7 @@ data class ServerConfig(
 )
 
 /** Android Keystore backed AES-GCM, so saved passwords are never stored in clear text. */
-private object Vault {
+internal object Vault {
     private const val ALIAS = "nebula_server_key"
 
     private fun key(): SecretKey {

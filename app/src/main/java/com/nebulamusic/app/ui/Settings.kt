@@ -47,6 +47,10 @@ fun SettingsScreen(
     val hiRes by prefs.hiResOutput.collectAsState()
     val scrobble by prefs.scrobble.collectAsState()
     val lightGlass by prefs.lightGlass.collectAsState()
+    val autoplay by prefs.autoplay.collectAsState()
+    val highAccuracy by prefs.highAccuracy.collectAsState()
+    val lfm by vm.lastFm.state.collectAsState()
+    val lfmMsg by vm.lastFmMessage.collectAsState()
     val ask by vm.exportAsk.collectAsState()
     val dir by vm.exportDir.collectAsState()
     val out by BitPerfect.info.collectAsState()
@@ -122,6 +126,13 @@ fun SettingsScreen(
                 }
                 Text(stringResource(R.string.set_fade_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 SwitchRow(stringResource(R.string.set_scrobble), stringResource(R.string.set_scrobble_sub), scrobble) { prefs.setScrobble(it) }
+
+                SectionTitle(stringResource(R.string.set_autoplay))
+                SwitchRow(stringResource(R.string.set_autoplay_title), stringResource(R.string.set_autoplay_sub), autoplay) { prefs.setAutoplay(it) }
+                if (autoplay) {
+                    SwitchRow(stringResource(R.string.set_hiacc), stringResource(R.string.set_hiacc_sub), highAccuracy) { prefs.setHighAccuracy(it) }
+                    if (highAccuracy) LastFmBlock(vm, lfm, lfmMsg)
+                }
 
                 SectionTitle(stringResource(R.string.set_cache))
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -330,4 +341,44 @@ private fun AppIconPicker() {
         }
     }
     Text(stringResource(R.string.set_icon_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+}
+
+@Composable
+private fun LastFmField(value: String, onValue: (String) -> Unit, hint: String, password: Boolean = false) {
+    androidx.compose.foundation.text.BasicTextField(
+        value, onValue, singleLine = true,
+        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(Accent),
+        visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrect = false, keyboardType = if (password) androidx.compose.ui.text.input.KeyboardType.Password else androidx.compose.ui.text.input.KeyboardType.Ascii),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(SurfaceHi).padding(horizontal = 14.dp, vertical = 13.dp),
+        decorationBox = { inner -> Box { if (value.isEmpty()) Text(hint, color = Muted, fontSize = 15.sp); inner() } }
+    )
+}
+
+@Composable
+private fun LastFmBlock(vm: MainViewModel, lfm: LastFmState, message: String?) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var key by remember(lfm.apiKey) { mutableStateOf(lfm.apiKey) }
+    var secret by remember { mutableStateOf("") }
+    fun openUrl(u: String) { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+    if (lfm.connected) {
+        Text(stringResource(R.string.lfm_connected, lfm.user ?: ""), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+        ActionRow(Icons.Rounded.LinkOff, stringResource(R.string.lfm_disconnect)) { vm.lastFmDisconnect() }
+    } else {
+        Text(stringResource(R.string.lfm_intro), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+        ActionRow(Icons.Rounded.OpenInNew, stringResource(R.string.lfm_get_key)) { openUrl("https://www.last.fm/api/account/create") }
+        LastFmField(key, { key = it }, stringResource(R.string.lfm_api_key))
+        LastFmField(secret, { secret = it }, if (lfm.hasSecret) stringResource(R.string.lfm_secret_saved) else stringResource(R.string.lfm_secret), password = true)
+        if (lfm.pendingToken == null) {
+            ActionRow(Icons.Rounded.Link, stringResource(R.string.lfm_connect)) {
+                vm.lastFmSave(key, secret.ifBlank { null }); secret = ""
+                vm.lastFmConnect(::openUrl)
+            }
+        } else {
+            Text(stringResource(R.string.lfm_approve), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            ActionRow(Icons.Rounded.CheckCircle, stringResource(R.string.lfm_finish)) { vm.lastFmFinish() }
+        }
+    }
+    if (message != null) Text(message, color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
 }

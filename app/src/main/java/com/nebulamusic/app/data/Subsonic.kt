@@ -42,6 +42,7 @@ private class Resp(
     val genres: ApiGenres? = null,
     val artistInfo2: ApiArtistInfo? = null,
     val topSongs: ApiSongs? = null,
+    val similarSongs2: ApiSongs? = null,
     val lyricsList: ApiLyricsList? = null,
     val scanStatus: ApiScanStatus? = null,
 )
@@ -254,6 +255,11 @@ class Session(
         runCatching { call("getTopSongs", "artist" to artistName, "count" to "20").topSongs?.song.orEmpty().map { it.toTrack() } }
             .getOrDefault(emptyList())
 
+    /** Songs of the library close to [id] (Navidrome relies on its Last.fm / agents; may be empty). */
+    suspend fun similarSongs(id: String, count: Int = 40): List<Track> =
+        runCatching { call("getSimilarSongs2", "id" to id, "count" to count.toString()).similarSongs2?.song.orEmpty().map { it.toTrack() } }
+            .getOrDefault(emptyList())
+
     suspend fun album(id: String): Pair<Album, List<Track>> {
         val a = call("getAlbum", "id" to id).album ?: throw IOException("Album not found")
         return a.toAlbum() to a.song.map { it.toTrack() }
@@ -261,10 +267,10 @@ class Session(
 
     suspend fun song(id: String): Track? = call("getSong", "id" to id).song?.toTrack()
 
-    suspend fun albums(sort: AlbumSort, offset: Int, size: Int, genre: String? = null): List<Album> =
+    suspend fun albums(sort: AlbumSort, offset: Int, size: Int, genre: String? = null, fromYear: Int? = null, toYear: Int? = null): List<Album> =
         call(
             "getAlbumList2", "type" to if (genre != null) "byGenre" else sort.type, "size" to size.toString(),
-            "offset" to offset.toString(), "genre" to genre,
+            "offset" to offset.toString(), "genre" to genre, "fromYear" to fromYear?.toString(), "toYear" to toYear?.toString(),
         ).albumList2?.album.orEmpty().map { it.toAlbum() }
 
     suspend fun randomSongs(size: Int = 50, genre: String? = null): List<Track> =
