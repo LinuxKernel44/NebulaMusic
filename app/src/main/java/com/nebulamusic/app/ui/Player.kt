@@ -639,7 +639,7 @@ fun PlayerScreen(
                 }
                 }
                 val classic = style == PlayerStyle.CLASSIC
-                if (classic) { Spacer(Modifier.height(2.dp)); queueRow(); Spacer(Modifier.height(10.dp)) }
+                if (classic) { Spacer(Modifier.height(2.dp)); queueRow(); Spacer(Modifier.height(4.dp)) }
 
                 // Transport + full-width waveform (touch it to scrub)
                 var lastSeek by remember { mutableLongStateOf(0L) }
@@ -773,7 +773,7 @@ fun PlayerScreen(
                 }
                 }
                 if (classic) {
-                    Adaptive(sampler, Modifier.fillMaxWidth().height(34.dp)) { fg ->
+                    Adaptive(sampler, Modifier.fillMaxWidth().height(30.dp)) { fg ->
                         ClassicSeekbar(
                             scrubbing = scrubbing, cursorFrac = { cursor.value }, playing = ui.active, playedFrac = playedFrac, fg = fg,
                             modifier = Modifier.fillMaxSize()
@@ -806,9 +806,9 @@ fun PlayerScreen(
                         )
                     }
                     timesRow(false)
-                    Box(Modifier.fillMaxWidth().height(104.dp).offset(y = (-14).dp), contentAlignment = Alignment.Center) { transport(playerBackdrop, Modifier) }
+                    Box(Modifier.fillMaxWidth().height(104.dp).offset(y = (-28).dp), contentAlignment = Alignment.Center) { transport(playerBackdrop, Modifier) }
                     // Format line under the transport buttons, which lifts the controls.
-                    Box(Modifier.fillMaxWidth().offset(y = (-18).dp), contentAlignment = Alignment.Center) { formatCell() }
+                    Box(Modifier.fillMaxWidth().offset(y = (-34).dp), contentAlignment = Alignment.Center) { formatCell() }
                 } else timesRow(true)
             }
             Spacer(Modifier.height(6.dp))
