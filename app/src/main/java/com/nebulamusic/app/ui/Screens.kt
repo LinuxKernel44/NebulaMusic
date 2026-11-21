@@ -15,6 +15,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Downloading
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -170,5 +176,45 @@ fun PlayAllRow(tracks: List<Track>, vm: MainViewModel) {
             Spacer(Modifier.width(4.dp))
             Text(stringResource(R.string.shuffle_play), color = Color.White)
         }
+    }
+}
+
+/** Spotify-style action row: quiet icons on the left, shuffle and a big round play button on the right. */
+@Composable
+fun ActionBar(onShuffle: () -> Unit, onPlay: () -> Unit, modifier: Modifier = Modifier, leading: @Composable RowScope.() -> Unit = {}) {
+    Row(modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        leading()
+        Spacer(Modifier.weight(1f))
+        BarIcon(Icons.Rounded.Shuffle, stringResource(R.string.shuffle_play), Color.White, onShuffle)
+        Spacer(Modifier.width(6.dp))
+        Box(
+            Modifier.size(62.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Accent).clickable(onClick = onPlay),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Rounded.PlayArrow, stringResource(R.string.play_all), tint = Color.Black, modifier = Modifier.size(38.dp)) }
+        Spacer(Modifier.width(4.dp))
+    }
+}
+
+@Composable
+fun BarIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, tint: Color, onClick: () -> Unit) {
+    Box(
+        Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Icon(icon, description, tint = tint, modifier = Modifier.size(28.dp)) }
+}
+
+/** Download / downloading / delete-downloaded icon for a list of songs. */
+@Composable
+fun DownloadAction(tracks: List<Track>, vm: MainViewModel, env: TrackEnv) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val allDownloaded = tracks.isNotEmpty() && tracks.all { it.id in env.dls }
+    val downloading = tracks.any { it.id in env.progress }
+    when {
+        downloading -> BarIcon(Icons.Rounded.Downloading, stringResource(R.string.downloading), Accent) { }
+        allDownloaded -> BarIcon(Icons.Rounded.DeleteOutline, stringResource(R.string.delete_downloaded), Accent) {
+            vm.deleteDownloads(tracks)
+            android.widget.Toast.makeText(ctx, R.string.downloads_removed, android.widget.Toast.LENGTH_SHORT).show()
+        }
+        else -> BarIcon(Icons.Rounded.Download, stringResource(R.string.download), Color.White) { vm.download(tracks) }
     }
 }

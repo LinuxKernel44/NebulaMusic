@@ -90,23 +90,12 @@ fun AlbumScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, onM
                             )
                             best?.let { Text(qualityLabel(it), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                             Spacer(Modifier.height(12.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ActionChip(Icons.Rounded.PlayArrow, stringResource(R.string.play_all), primary = true) { vm.play(tracks, 0) }
-                                ActionChip(Icons.Rounded.Shuffle, stringResource(R.string.shuffle_play)) { vm.play(tracks.shuffled(), 0) }
-                                val ctx = androidx.compose.ui.platform.LocalContext.current
-                                val allDownloaded = tracks.isNotEmpty() && tracks.all { it.id in env.dls }
-                                val downloading = tracks.any { it.id in env.progress }
-                                when {
-                                    downloading -> ActionChip(Icons.Rounded.Downloading, stringResource(R.string.downloading)) { }
-                                    allDownloaded -> ActionChip(Icons.Rounded.DeleteOutline, stringResource(R.string.delete_downloaded)) {
-                                        vm.deleteDownloads(tracks)
-                                        android.widget.Toast.makeText(ctx, R.string.downloads_removed, android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                    else -> ActionChip(Icons.Rounded.Download, stringResource(R.string.download)) { vm.download(tracks) }
-                                }
-                                ActionChip(if (star) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, stringResource(if (star) R.string.rm_fav else R.string.add_fav)) {
-                                    albumStar = !star; vm.toggleStarContainer(album.id, StarKind.ALBUM, !star)
-                                }
+                            ActionBar(onShuffle = { vm.play(tracks.shuffled(), 0) }, onPlay = { vm.play(tracks, 0) }) {
+                                BarIcon(
+                                    if (star) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                    stringResource(if (star) R.string.rm_fav else R.string.add_fav), if (star) Accent else Color.White
+                                ) { albumStar = !star; vm.toggleStarContainer(album.id, StarKind.ALBUM, !star) }
+                                DownloadAction(tracks, vm, env)
                             }
                             Spacer(Modifier.height(8.dp))
                         }
@@ -137,6 +126,7 @@ fun ArtistScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, on
     var headerH by remember { mutableStateOf(80.dp) }
     val ls = rememberKeptListState("artist")
     var bioOpen by remember { mutableStateOf(false) }
+    var artistStar by remember(id) { mutableStateOf<Boolean?>(null) }
     val scope = rememberCoroutineScope()
 
     Box(Modifier.fillMaxSize()) {
@@ -155,13 +145,15 @@ fun ArtistScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, on
                                 Text(artist.name, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, textAlign = TextAlign.Center)
                                 Text(pluralStringResource(R.plurals.n_albums, albums.size, albums.size), color = Muted, fontSize = 13.sp)
                                 Spacer(Modifier.height(12.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    ActionChip(Icons.Rounded.PlayArrow, stringResource(R.string.play_all), primary = true) {
-                                        scope.launch { playArtist(vm, albums, false) }
-                                    }
-                                    ActionChip(Icons.Rounded.Shuffle, stringResource(R.string.shuffle_play)) {
-                                        scope.launch { playArtist(vm, albums, true) }
-                                    }
+                                ActionBar(
+                                    onShuffle = { scope.launch { playArtist(vm, albums, true) } },
+                                    onPlay = { scope.launch { playArtist(vm, albums, false) } },
+                                ) {
+                                    val fav = artistStar ?: artist.starred
+                                    BarIcon(
+                                        if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                        stringResource(if (fav) R.string.rm_fav else R.string.add_fav), if (fav) Accent else Color.White
+                                    ) { artistStar = !fav; vm.toggleStarContainer(artist.id, StarKind.ARTIST, !fav) }
                                 }
                                 if (info.biography.isNotBlank()) {
                                     Spacer(Modifier.height(12.dp))
@@ -248,7 +240,9 @@ fun PlaylistScreen(
                                         pluralStringResource(R.plurals.n_songs, tracks.size, tracks.size) + " · " + fmtSec(tracks.sumOf { it.durationSec }),
                                         color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                                     )
-                                    PlayAllRow(tracks, vm)
+                                    ActionBar(onShuffle = { vm.play(tracks.shuffled(), 0) }, onPlay = { vm.play(tracks, 0) }) {
+                                        DownloadAction(tracks, vm, env)
+                                    }
                                 }
                             }
                             itemsIndexed(tracks, key = { i, t -> "${t.id}#$i" }) { i, t ->
