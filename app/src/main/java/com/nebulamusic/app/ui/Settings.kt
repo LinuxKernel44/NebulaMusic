@@ -48,6 +48,7 @@ fun SettingsScreen(
     val scrobble by prefs.scrobble.collectAsState()
     val lightGlass by prefs.lightGlass.collectAsState()
     val autoplay by prefs.autoplay.collectAsState()
+    val playerStyle by prefs.playerStyle.collectAsState()
     val highAccuracy by prefs.highAccuracy.collectAsState()
     val lb by vm.listenBrainz.state.collectAsState()
     val lbMsg by vm.listenBrainzMessage.collectAsState()
@@ -127,6 +128,10 @@ fun SettingsScreen(
                 }
                 Text(stringResource(R.string.set_fade_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 SwitchRow(stringResource(R.string.set_scrobble), stringResource(R.string.set_scrobble_sub), scrobble) { prefs.setScrobble(it) }
+
+                SectionTitle(stringResource(R.string.set_player))
+                OptionRow(playerStyle == PlayerStyle.WAVEFORM, stringResource(R.string.player_waveform), stringResource(R.string.player_waveform_sub)) { prefs.setPlayerStyle(PlayerStyle.WAVEFORM) }
+                OptionRow(playerStyle == PlayerStyle.CLASSIC, stringResource(R.string.player_classic), stringResource(R.string.player_classic_sub)) { prefs.setPlayerStyle(PlayerStyle.CLASSIC) }
 
                 SectionTitle(stringResource(R.string.set_autoplay))
                 SwitchRow(stringResource(R.string.set_autoplay_title), stringResource(R.string.set_autoplay_sub), autoplay) { prefs.setAutoplay(it) }

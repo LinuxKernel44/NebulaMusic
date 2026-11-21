@@ -226,6 +226,11 @@
     <string name="icon_aurora">Aurora</string>
     <string name="icon_vinyl">Vinyl</string>
     <string name="icon_glass">Glass</string>
+    <string name="set_player">PLAYER</string>
+    <string name="player_waveform">Waveform</string>
+    <string name="player_waveform_sub">Waveform seekbar with the transport buttons on top of it.</string>
+    <string name="player_classic">Classic</string>
+    <string name="player_classic_sub">Thin seekbar with the queue buttons above it and the transport buttons below.</string>
     <string name="set_autoplay">QUEUE</string>
     <string name="set_autoplay_title">Endless queue</string>
     <string name="set_autoplay_sub">When nothing is left to play, keep adding songs that fit what you are listening to.</string>

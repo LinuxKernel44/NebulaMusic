@@ -80,6 +80,7 @@ import coil.request.SuccessResult
 import com.nebulamusic.app.R
 import com.nebulamusic.app.data.Track
 import com.nebulamusic.app.data.Repo
+import com.nebulamusic.app.data.PlayerStyle
 import com.nebulamusic.app.player.PlayMode
 import com.nebulamusic.app.player.PlayerController
 import kotlinx.coroutines.Dispatchers
@@ -347,6 +348,35 @@ private fun fmtFormat(t: Track?, decodedSr: Int, decodedBr: Int): String {
 }
 
 @Composable
+private fun ClassicSeekbar(
+    scrubbing: Boolean,
+    cursorFrac: () -> Float,
+    playing: Boolean,
+    playedFrac: () -> Float,
+    fg: Color,
+    modifier: Modifier,
+) {
+    // Invalidate only this small canvas while playing; while scrubbing the finger position is read during drawing.
+    var tick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(playing, scrubbing) {
+        while (playing || scrubbing) { withFrameNanos { tick = it }; if (!scrubbing) delay(50) }
+    }
+    val grow by animateFloatAsState(if (scrubbing) 1f else 0f, tween(140), label = "thumb")
+    Canvas(modifier) {
+        tick.let { }
+        val pad = 12.dp.toPx()
+        val w = size.width - 2 * pad
+        val cy = size.height / 2f
+        val f = (if (scrubbing) cursorFrac() else playedFrac()).coerceIn(0f, 1f)
+        val th = (4f + 2f * grow).dp.toPx()
+        drawRoundRect(fg.copy(alpha = 0.25f), Offset(pad, cy - th / 2f), Size(w, th), CornerRadius(th / 2f))
+        drawRoundRect(fg, Offset(pad, cy - th / 2f), Size(w * f, th), CornerRadius(th / 2f))
+        val r = (7f + 3f * grow).dp.toPx()
+        drawCircle(fg, r, Offset(pad + w * f, cy))
+    }
+}
+
+@Composable
 fun PlayerScreen(
     vm: MainViewModel,
     onClose: () -> Unit,
@@ -370,6 +400,7 @@ fun PlayerScreen(
     val favs by vm.starred.collectAsState()
     val beat = ui.track
     val session = LocalSession.current
+    val style by vm.prefs.playerStyle.collectAsState()
 
     // Poweramp-style track change: the previous cover/colours/title stay on screen until the next
     // artwork is decoded and its palette is ready, then everything cross-fades together in one go.
@@ -570,6 +601,7 @@ fun PlayerScreen(
                 Spacer(Modifier.height(12.dp))
 
                 // Queue · play mode · shuffle (glass)
+                val queueRow: @Composable () -> Unit = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     GlassIconButton(onQueue, playerBackdrop, size = 42.dp, width = 70.dp) {
                         Icon(Icons.Rounded.QueueMusic, stringResource(R.string.queue), tint = Color.White.copy(alpha = 0.9f))
@@ -605,7 +637,9 @@ fun PlayerScreen(
                         Icon(Icons.Rounded.Shuffle, stringResource(R.string.shuffle), tint = Color.White.copy(alpha = 0.9f))
                     }
                 }
-                Spacer(Modifier.height(6.dp))
+                }
+                val classic = style == PlayerStyle.CLASSIC
+                if (classic) { Spacer(Modifier.height(2.dp)); queueRow(); Spacer(Modifier.height(10.dp)) }
 
                 // Transport + full-width waveform (touch it to scrub)
                 var lastSeek by remember { mutableLongStateOf(0L) }
@@ -613,9 +647,41 @@ fun PlayerScreen(
                     val p = if (ui.active) player.positionNow() else positionState.value
                     if (durationMs > 0) p.toFloat() / durationMs else 0f
                 }
+                // Scale the transport row down on narrow screens so the outer buttons are never clipped.
+                val transport: @Composable (Backdrop, Modifier) -> Unit = { bd, mod ->
+                    BoxWithConstraints(mod.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        val k = (maxWidth.value / 360f).coerceAtMost(1f)
+                        Row(
+                            Modifier,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp * k),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val dark = Color.Black.copy(alpha = 0.50f)
+                            GlassIconButton({ player.seekBy(-30_000) }, bd, size = ((48 - 2 * pausedT) * k).dp, container = dark) {
+                                TripleChevron(false, (28 * k).dp)
+                            }
+                            GlassIconButton(player::previous, bd, size = (68 * k).dp, container = dark) {
+                                Icon(Icons.Rounded.FastRewind, stringResource(R.string.previous), tint = Color.White, modifier = Modifier.size((38 * k).dp))
+                            }
+                            GlassIconButton(player::togglePlay, bd, size = ((96 + 8 * pausedT) * k).dp, container = dark) {
+                                Icon(
+                                    if (ui.active) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    stringResource(if (ui.active) R.string.pause else R.string.play),
+                                    tint = Color.White, modifier = Modifier.size(((62 + 6 * pausedT) * k).dp)
+                                )
+                            }
+                            GlassIconButton(player::next, bd, size = (68 * k).dp, container = dark) {
+                                Icon(Icons.Rounded.FastForward, stringResource(R.string.next), tint = Color.White, modifier = Modifier.size((38 * k).dp))
+                            }
+                            GlassIconButton({ player.seekBy(30_000) }, bd, size = ((48 - 2 * pausedT) * k).dp, container = dark) {
+                                TripleChevron(true, (28 * k).dp)
+                            }
+                        }
+                    }
+                }
                 val waveBackdrop = rememberLayerBackdrop()
                 val transportBackdrop = rememberCombinedBackdrop(playerBackdrop, waveBackdrop)
-                Box(
+                if (!classic) Box(
                     Modifier.fillMaxWidth().height(144.dp)
                         // Scrubbing only starts when the finger lands on the cursor; taps elsewhere do nothing.
                         .pointerInput(durationMs) {
@@ -672,39 +738,11 @@ fun PlayerScreen(
                             )
                         }
                     }
-                    // Scale the transport row down on narrow screens so the outer buttons are never clipped.
-                    BoxWithConstraints(Modifier.align(Alignment.Center).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        val k = (maxWidth.value / 360f).coerceAtMost(1f)
-                        Row(
-                            Modifier.graphicsLayer { alpha = controlsAlpha.value },
-                            horizontalArrangement = Arrangement.spacedBy(6.dp * k),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val dark = Color.Black.copy(alpha = 0.50f)
-                            GlassIconButton({ player.seekBy(-30_000) }, transportBackdrop, size = ((48 - 2 * pausedT) * k).dp, container = dark) {
-                                TripleChevron(false, (28 * k).dp)
-                            }
-                            GlassIconButton(player::previous, transportBackdrop, size = (68 * k).dp, container = dark) {
-                                Icon(Icons.Rounded.FastRewind, stringResource(R.string.previous), tint = Color.White, modifier = Modifier.size((38 * k).dp))
-                            }
-                            GlassIconButton(player::togglePlay, transportBackdrop, size = ((96 + 8 * pausedT) * k).dp, container = dark) {
-                                Icon(
-                                    if (ui.active) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    stringResource(if (ui.active) R.string.pause else R.string.play),
-                                    tint = Color.White, modifier = Modifier.size(((62 + 6 * pausedT) * k).dp)
-                                )
-                            }
-                            GlassIconButton(player::next, transportBackdrop, size = (68 * k).dp, container = dark) {
-                                Icon(Icons.Rounded.FastForward, stringResource(R.string.next), tint = Color.White, modifier = Modifier.size((38 * k).dp))
-                            }
-                            GlassIconButton({ player.seekBy(30_000) }, transportBackdrop, size = ((48 - 2 * pausedT) * k).dp, container = dark) {
-                                TripleChevron(true, (28 * k).dp)
-                            }
-                        }
-                    }
+                    transport(transportBackdrop, Modifier.align(Alignment.Center).graphicsLayer { alpha = controlsAlpha.value })
                 }
 
                 // Times and format on a single row
+                val timesRow: @Composable () -> Unit = {
                 val shownMs = if (scrubbing) (cursor.value * durationMs).toLong() else posSec * 1000
                 val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -730,6 +768,44 @@ fun PlayerScreen(
                         Text(fmtMs(durationMs), color = fg, fontWeight = FontWeight.Bold, fontSize = timeSp.sp, modifier = Modifier.padding(horizontal = 4.dp))
                     }
                 }
+                }
+                if (classic) {
+                    Adaptive(sampler, Modifier.fillMaxWidth().height(34.dp)) { fg ->
+                        ClassicSeekbar(
+                            scrubbing = scrubbing, cursorFrac = { cursor.value }, playing = ui.active, playedFrac = playedFrac, fg = fg,
+                            modifier = Modifier.fillMaxSize()
+                                .pointerInput(durationMs) {
+                                    val pad = 12.dp.toPx()
+                                    fun fracOf(x: Float) = ((x - pad) / (size.width - 2 * pad)).coerceIn(0f, 1f)
+                                    awaitEachGesture {
+                                        val down = awaitFirstDown(requireUnconsumed = true)
+                                        if (durationMs <= 0) return@awaitEachGesture
+                                        down.consume()
+                                        scrubbing = true
+                                        player.scrubStart()
+                                        var f = fracOf(down.position.x)
+                                        scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { cursor.snapTo(f) }
+                                        try {
+                                            while (true) {
+                                                val ev = awaitPointerEvent()
+                                                val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                                                if (!ch.pressed) break
+                                                ch.consume()
+                                                f = fracOf(ch.position.x)
+                                                scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { cursor.snapTo(f) }
+                                            }
+                                        } finally {
+                                            player.scrubEnd((f * durationMs).toLong())
+                                            scrubbing = false
+                                        }
+                                    }
+                                }
+                        )
+                    }
+                    timesRow()
+                    Spacer(Modifier.height(4.dp))
+                    Box(Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) { transport(playerBackdrop, Modifier) }
+                } else timesRow()
             }
             Spacer(Modifier.height(6.dp))
             Box(Modifier.navigationBarsPadding().padding(horizontal = 12.dp, vertical = 6.dp)) { AppTabs(currentTab, onNav, playerBackdrop) }
