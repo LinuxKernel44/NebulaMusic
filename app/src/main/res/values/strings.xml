@@ -240,4 +240,11 @@
     <string name="lb_connect">Connect to ListenBrainz</string>
     <string name="lb_connected">Connected as %1$s</string>
     <string name="lb_disconnect">Disconnect</string>
+    <string name="by_name">By name</string>
+    <string name="by_artist">By artist</string>
+    <string name="by_year">By year</string>
+    <string name="by_added">By date added to Library</string>
+    <string name="by_tracks">By number of tracks</string>
+    <string name="by_albums">By number of albums</string>
+    <string name="sort_reverse">Reverse</string>
 </resources>

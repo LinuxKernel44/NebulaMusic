@@ -45,17 +45,6 @@ private fun LibSection.label() = when (this) {
     LibSection.DOWNLOADS -> R.string.lib_downloads
 }
 
-private fun AlbumSort.label() = when (this) {
-    AlbumSort.NAME -> R.string.sort_name
-    AlbumSort.ARTIST -> R.string.sort_artist
-    AlbumSort.NEWEST -> R.string.sort_newest
-    AlbumSort.RECENT -> R.string.sort_recent
-    AlbumSort.FREQUENT -> R.string.sort_frequent
-    AlbumSort.RANDOM -> R.string.sort_random
-    AlbumSort.YEAR -> R.string.sort_year
-    AlbumSort.STARRED -> R.string.sort_starred
-}
-
 @Composable
 fun LibraryScreen(
     vm: MainViewModel, nav: Nav, section: LibSection, onSection: (LibSection) -> Unit,
@@ -71,7 +60,8 @@ fun LibraryScreen(
     val bottom = bottomInset + 8.dp
     val pad = PaddingValues(top = headerH, bottom = bottom)
     var sortMenu by remember { mutableStateOf(false) }
-    val albumSort by vm.albumSort.collectAsState()
+    val sorts by vm.sorts.collectAsState()
+    val spec = sorts[section] ?: SortSpec()
 
     Box(Modifier.fillMaxSize()) {
         ScreenBackdrop {
@@ -82,9 +72,10 @@ fun LibraryScreen(
                         if (list.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
                         else {
                             val ls = rememberKeptListState("artists")
+                            val sortedArtists = remember(list, spec) { sortArtists(list, spec) }
                             Box(Modifier.fillMaxSize()) {
                                 LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
-                                    items(list, key = { it.id }) { a -> ArtistRow(a) { nav.openArtist(a.id) } }
+                                    items(sortedArtists, key = { it.id }) { a -> ArtistRow(a) { nav.openArtist(a.id) } }
                                 }
                                 ListScrollbar(ls, headerH, bottom)
                             }
@@ -93,41 +84,50 @@ fun LibraryScreen(
                 }
 
                 LibSection.ALBUMS -> {
-                    val items by vm.albums.items.collectAsState()
-                    val st by vm.albums.state.collectAsState()
                     val gs = rememberKeptGridState("albums")
-                    val near by remember { derivedStateOf { gs.layoutInfo.let { (it.visibleItemsInfo.lastOrNull()?.index ?: 0) >= it.totalItemsCount - 10 } } }
-                    LaunchedEffect(near, items.size) { if (near) vm.albums.more() }
-                    if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.albums.reset() }) {
-                        Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                    } else Box(Modifier.fillMaxSize()) {
-                        LazyVerticalGrid(
-                            state = gs, columns = GridCells.Fixed(2),
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = headerH, bottom = bottom),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(items, key = { it.id }) { a -> AlbumCard(a, onClick = { nav.openAlbum(a.id) }) }
+                    if (vm.albumsNative(spec)) {
+                        val items by vm.albums.items.collectAsState()
+                        val st by vm.albums.state.collectAsState()
+                        val near by remember { derivedStateOf { gs.layoutInfo.let { (it.visibleItemsInfo.lastOrNull()?.index ?: 0) >= it.totalItemsCount - 10 } } }
+                        LaunchedEffect(near, items.size) { if (near) vm.albums.more() }
+                        if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.albums.reset() }) {
+                            Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
+                        } else AlbumGrid(items, gs, nav, headerH, bottom)
+                    } else {
+                        val all by vm.albumsAll.collectAsState()
+                        LaunchedEffect(Unit) { vm.loadAllAlbums() }
+                        LoadView(all, { vm.loadAllAlbums(true) }) { list ->
+                            if (list.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
+                            else AlbumGrid(remember(list, spec) { sortAlbums(list, spec) }, gs, nav, headerH, bottom)
                         }
-                        GridScrollbar(gs, headerH, bottom)
                     }
                 }
 
                 LibSection.SONGS -> {
-                    val items by vm.songs.items.collectAsState()
-                    val st by vm.songs.state.collectAsState()
-                    if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.songs.reset() }) {
-                        Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                    } else TrackColumn(items, vm, env, onMenu, contentPadding = pad, onEndReached = vm.songs::more, stateKey = "songs")
+                    if (vm.songsNative(spec)) {
+                        val items by vm.songs.items.collectAsState()
+                        val st by vm.songs.state.collectAsState()
+                        if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.songs.reset() }) {
+                            Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
+                        } else TrackColumn(items, vm, env, onMenu, contentPadding = pad, onEndReached = vm.songs::more, stateKey = "songs")
+                    } else {
+                        val all by vm.songsAll.collectAsState()
+                        LaunchedEffect(Unit) { vm.loadAllSongs() }
+                        LoadView(all, { vm.loadAllSongs(true) }) { list ->
+                            if (list.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
+                            else TrackColumn(remember(list, spec) { sortTracks(list, spec) }, vm, env, onMenu, contentPadding = pad, stateKey = "songs")
+                        }
+                    }
                 }
 
                 LibSection.GENRES -> {
                     val st by vm.genres.collectAsState()
                     LoadView(st, vm::refreshGenres) { list ->
                         val ls = rememberKeptListState("genres")
+                        val sortedGenres = remember(list, spec) { sortGenres(list, spec) }
                         Box(Modifier.fillMaxSize()) {
                             LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
-                                items(list, key = { it.name }) { g ->
+                                items(sortedGenres, key = { it.name }) { g ->
                                     Row(
                                         Modifier.fillMaxWidth().clickable { nav.openGenre(g.name) }.padding(horizontal = 20.dp, vertical = 14.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -155,6 +155,7 @@ fun LibraryScreen(
                     val st by vm.playlists.collectAsState()
                     LoadView(st, vm::refreshPlaylists) { list ->
                         val ls = rememberKeptListState("playlists")
+                        val sortedPlaylists = remember(list, spec) { sortPlaylists(list, spec) }
                         Box(Modifier.fillMaxSize()) {
                             LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
                                 item {
@@ -168,7 +169,7 @@ fun LibraryScreen(
                                     }
                                 }
                                 if (list.isEmpty()) item { Text(stringResource(R.string.empty_playlists), color = Muted, modifier = Modifier.padding(16.dp)) }
-                                items(list, key = { it.id }) { p -> PlaylistRow(p) { nav.openPlaylist(p.id, p.name) } }
+                                items(sortedPlaylists, key = { it.id }) { p -> PlaylistRow(p) { nav.openPlaylist(p.id, p.name) } }
                             }
                             ListScrollbar(ls, headerH, bottom)
                         }
@@ -180,7 +181,7 @@ fun LibraryScreen(
                     LoadView(st, vm::refreshFavorites) { fav ->
                         if (fav.isEmpty) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_favs)) }
                         else TrackColumn(
-                            fav.tracks, vm, env, onMenu, contentPadding = pad, stateKey = "favorites",
+                            remember(fav, spec) { sortTracks(fav.tracks, spec) }, vm, env, onMenu, contentPadding = pad, stateKey = "favorites",
                             header = {
                                 Column {
                                     if (fav.tracks.isNotEmpty()) PlayAllRow(fav.tracks, vm)
@@ -202,7 +203,7 @@ fun LibraryScreen(
                     val inProgress = env.progress.keys.toList()
                     if (downloaded.isEmpty() && inProgress.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_downloads)) }
                     else TrackColumn(
-                        downloaded, vm, env, onMenu, contentPadding = pad, stateKey = "downloads",
+                        remember(downloaded, spec) { sortTracks(downloaded, spec) }, vm, env, onMenu, contentPadding = pad, stateKey = "downloads",
                         header = {
                             Column {
                                 if (inProgress.isNotEmpty()) DownloadingSection(inProgress.size, env.progress)
@@ -227,7 +228,7 @@ fun LibraryScreen(
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 GlassTitle(stringResource(R.string.nav_library), Modifier.weight(1f))
-                if (section == LibSection.ALBUMS) GlassIconButton({ sortMenu = !sortMenu }, backdrop, size = 40.dp) {
+                GlassIconButton({ sortMenu = !sortMenu }, backdrop, size = 40.dp) {
                     Icon(Icons.Rounded.Sort, stringResource(R.string.sort_by), tint = Color.White)
                 }
                 GlassIconButton(nav.openSettings, backdrop, size = 40.dp) {
@@ -239,15 +240,22 @@ fun LibraryScreen(
             }
         }
 
-        GlassMenu(
-            visible = sortMenu, onDismiss = { sortMenu = false }, backdrop = backdrop,
-            alignment = Alignment.TopEnd, modifier = Modifier.statusBarsPadding().padding(top = 64.dp, end = 12.dp)
+        SortMenu(sortMenu, { sortMenu = false }, backdrop, section, spec) { vm.setSort(section, it) }
+    }
+}
+
+@Composable
+private fun AlbumGrid(items: List<Album>, gs: androidx.compose.foundation.lazy.grid.LazyGridState, nav: Nav, headerH: androidx.compose.ui.unit.Dp, bottom: androidx.compose.ui.unit.Dp) {
+    Box(Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            state = gs, columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = headerH, bottom = bottom),
+            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxSize()
         ) {
-            for (s in AlbumSort.entries) GlassMenuRow(
-                null, stringResource(s.label()), { vm.albumSort.value = s; sortMenu = false },
-                color = if (s == albumSort) GlassDefaults.Accent else Color.White, fill = false, minWidth = 190.dp,
-            )
+            items(items, key = { it.id }) { a -> AlbumCard(a, onClick = { nav.openAlbum(a.id) }) }
         }
+        GridScrollbar(gs, headerH, bottom)
     }
 }
 

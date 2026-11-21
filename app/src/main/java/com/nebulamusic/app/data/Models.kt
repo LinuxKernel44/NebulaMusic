@@ -43,6 +43,8 @@ data class Track(
     val replayGain: ReplayGain? = null,
     /** MusicBrainz recording id when the file is tagged with one. */
     val musicBrainzId: String? = null,
+    /** When the song was added to the library (epoch ms, 0 = unknown). */
+    val addedAt: Long = 0,
 ) {
     val subtitle: String get() = listOf(artist, album).filter { it.isNotBlank() }.joinToString(" · ")
 
@@ -69,6 +71,7 @@ data class Album(
     val genre: String? = null,
     val starred: Boolean = false,
     val playCount: Int = 0,
+    val addedAt: Long = 0,
 )
 
 data class Artist(
@@ -88,6 +91,7 @@ data class Playlist(
     val coverArt: String? = null,
     val isPublic: Boolean = false,
     val comment: String = "",
+    val addedAt: Long = 0,
 )
 
 data class Genre(val name: String, val songCount: Int, val albumCount: Int)

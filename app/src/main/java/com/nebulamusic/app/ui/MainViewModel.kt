@@ -105,13 +105,61 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _favorites = MutableStateFlow<Load<SearchResults>>(Load.Loading)
     val favorites: StateFlow<Load<SearchResults>> = _favorites.asStateFlow()
 
-    val albumSort = MutableStateFlow(AlbumSort.NAME)
-    val albums = Paged(this, 60) { s, off -> s.albums(albumSort.value, off, 60) }
+    /** The chosen order of each Library list (default: by name). */
+    val sorts = MutableStateFlow<Map<LibSection, SortSpec>>(emptyMap())
+    fun sortOf(section: LibSection) = sorts.value[section] ?: SortSpec()
+    fun setSort(section: LibSection, spec: SortSpec) { sorts.value = sorts.value + (section to spec) }
+
+    // Orders the server can produce page by page are fetched that way; any other order (or a reversed one) needs the whole
+    // list, loaded once in the background and sorted here.
+    fun albumsNative(sp: SortSpec) = when (sp.key) {
+        SortKey.RECENT, SortKey.FREQUENT, SortKey.RANDOM, SortKey.STARRED -> true
+        SortKey.NAME, SortKey.ARTIST, SortKey.ADDED -> !sp.reverse
+        else -> false
+    }
+    fun songsNative(sp: SortSpec) = sp.key == SortKey.NAME && !sp.reverse
+    private fun albumType(sp: SortSpec) = when (sp.key) {
+        SortKey.ARTIST -> AlbumSort.ARTIST; SortKey.ADDED -> AlbumSort.NEWEST; SortKey.RECENT -> AlbumSort.RECENT
+        SortKey.FREQUENT -> AlbumSort.FREQUENT; SortKey.RANDOM -> AlbumSort.RANDOM; SortKey.STARRED -> AlbumSort.STARRED
+        else -> AlbumSort.NAME
+    }
+    val albums = Paged(this, 60) { s, off -> s.albums(albumType(sortOf(LibSection.ALBUMS)), off, 60) }
     val songs = Paged(this, 100) { s, off -> s.allSongs(off, 100) }
+
+    private val _albumsAll = MutableStateFlow<Load<List<Album>>>(Load.Loading)
+    val albumsAll: StateFlow<Load<List<Album>>> = _albumsAll.asStateFlow()
+    private val _songsAll = MutableStateFlow<Load<List<Track>>>(Load.Loading)
+    val songsAll: StateFlow<Load<List<Track>>> = _songsAll.asStateFlow()
+
+    fun loadAllAlbums(force: Boolean = false) {
+        if (!force && _albumsAll.value is Load.Ok) return
+        _albumsAll.value = Load.Loading
+        viewModelScope.launch {
+            _albumsAll.value = try {
+                Load.Ok(withContext(Dispatchers.IO) {
+                    val s = session.value ?: throw java.io.IOException("Not logged in")
+                    buildList { var off = 0; while (true) { val p = s.albums(AlbumSort.NAME, off, 500); addAll(p); if (p.size < 500) break; off += 500 } }
+                })
+            } catch (e: Exception) { errorOf(e) }
+        }
+    }
+
+    fun loadAllSongs(force: Boolean = false) {
+        if (!force && _songsAll.value is Load.Ok) return
+        _songsAll.value = Load.Loading
+        viewModelScope.launch {
+            _songsAll.value = try {
+                Load.Ok(withContext(Dispatchers.IO) {
+                    val s = session.value ?: throw java.io.IOException("Not logged in")
+                    buildList { var off = 0; while (true) { val p = s.allSongs(off, 500); addAll(p); if (p.size < 500) break; off += 500 } }
+                })
+            } catch (e: Exception) { errorOf(e) }
+        }
+    }
 
     /** Songs saved for offline listening on the active server. */
     val downloadedTracks: StateFlow<List<Track>> = c.downloadRows
-        .map { rows -> rows.mapNotNull { runCatching { TrackJson.decodeFromString<Track>(it.json) }.getOrNull() } }
+        .map { rows -> rows.mapNotNull { r -> runCatching { TrackJson.decodeFromString<Track>(r.json).copy(addedAt = r.completedAt) }.getOrNull() } }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -125,7 +173,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (loadedFor != s.server.id) { loadedFor = s.server.id; connect(s) }
             }
         }
-        viewModelScope.launch { albumSort.drop(1).collect { albums.reset() } }
+        viewModelScope.launch { sorts.map { sortOf(LibSection.ALBUMS) }.distinctUntilChanged().drop(1).collect { sp -> if (albumsNative(sp)) albums.reset() else loadAllAlbums() } }
     }
 
     private suspend fun connect(s: Session) {
@@ -140,7 +188,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _playlists.value = errorOf(e); _favorites.value = errorOf(e)
             return
         }
-        albums.reset(); songs.reset()
+        albums.reset(); songs.reset(); _albumsAll.value = Load.Loading; _songsAll.value = Load.Loading
         refreshAll()
     }
 

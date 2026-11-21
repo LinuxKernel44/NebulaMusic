@@ -86,6 +86,7 @@ private class ApiAlbum(
     val genre: String? = null,
     val starred: String? = null,
     val playCount: Int = 0,
+    val created: String? = null,
     val song: List<ApiSong> = emptyList(),
 )
 
@@ -115,6 +116,7 @@ private class ApiSong(
     val bpm: Int = 0,
     val replayGain: ReplayGain? = null,
     val musicBrainzId: String? = null,
+    val created: String? = null,
 )
 
 @Serializable
@@ -127,6 +129,7 @@ private class ApiPlaylist(
     val coverArt: String? = null,
     val public: Boolean = false,
     val comment: String = "",
+    val created: String? = null,
     val entry: List<ApiSong> = emptyList(),
 )
 
@@ -144,23 +147,25 @@ private class ApiArtistInfo(
 
 // ---- Mapping --------------------------------------------------------------------------------------
 
+private fun isoMs(s: String?): Long = runCatching { java.time.Instant.parse(s).toEpochMilli() }.getOrDefault(0L)
+
 private fun ApiSong.toTrack() = Track(
     id = id, title = title, artist = artist, artistId = artistId, album = album, albumId = albumId,
     durationSec = duration, trackNo = track, discNo = discNumber, year = year, genre = genre,
     coverArt = coverArt ?: id, suffix = suffix, contentType = contentType, bitRate = bitRate,
     samplingRate = samplingRate, bitDepth = bitDepth, channels = channelCount, size = size,
     starred = starred != null, playCount = playCount, bpm = bpm, replayGain = replayGain,
-    musicBrainzId = musicBrainzId?.takeIf { it.isNotBlank() },
+    musicBrainzId = musicBrainzId?.takeIf { it.isNotBlank() }, addedAt = isoMs(created),
 )
 
 private fun ApiAlbum.toAlbum() = Album(
     id, name.ifBlank { title.orEmpty() }, artist, artistId, coverArt ?: id, songCount, duration, year, genre,
-    starred != null, playCount,
+    starred != null, playCount, isoMs(created),
 )
 
 private fun ApiArtist.toArtist() = Artist(id, name, coverArt, albumCount, starred != null)
 
-private fun ApiPlaylist.toPlaylist() = Playlist(id, name, owner, songCount, duration, coverArt, public, comment)
+private fun ApiPlaylist.toPlaylist() = Playlist(id, name, owner, songCount, duration, coverArt, public, comment, isoMs(created))
 
 // ---- Server + session ------------------------------------------------------------------------------
 
