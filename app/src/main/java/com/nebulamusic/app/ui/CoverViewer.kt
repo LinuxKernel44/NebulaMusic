@@ -11,6 +11,13 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material3.Icon
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
@@ -63,8 +70,9 @@ fun CoverViewer(coverArt: String?, onClosed: () -> Unit) {
             Modifier.fillMaxSize().graphicsLayer { alpha = 1f - (abs(drag.value) / (height * 0.45f)).coerceIn(0f, 1f) }
                 .background(Color.Black.copy(alpha = 0.96f))
         )
+        val layer = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
         Box(
-            Modifier.fillMaxSize()
+            Modifier.fillMaxSize().layerBackdrop(layer)
                 .draggable(
                     rememberDraggableState { d -> if (!closing) scope.launch { drag.snapTo(drag.value + d) } },
                     Orientation.Vertical,
@@ -88,5 +96,14 @@ fun CoverViewer(coverArt: String?, onClosed: () -> Unit) {
                 }
             )
         }
+        com.nebulamusic.app.glass.GlassIconButton(
+            { closeFade() }, layer, size = 46.dp,
+            modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(10.dp).graphicsLayer {
+                val f = (abs(drag.value) / (height * 0.2f)).coerceIn(0f, 1f)
+                alpha = 1f - f
+                val sc = 0.8f + 0.2f * (1f - enter.value.coerceIn(0f, 1f))
+                scaleX = sc; scaleY = sc
+            }
+        ) { Icon(Icons.Rounded.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
     }
 }
