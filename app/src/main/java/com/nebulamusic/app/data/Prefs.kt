@@ -38,7 +38,7 @@ class Prefs(ctx: Context) {
     val cacheMb: StateFlow<Int> = _cacheMb.asStateFlow()
     fun setCacheMb(v: Int) { sp.edit().putInt("cache_mb", v).apply(); _cacheMb.value = v }
 
-    private val _bitPerfect = flow(sp.getBoolean("bit_perfect", true))
+    private val _bitPerfect = flow(sp.getBoolean("bit_perfect", false))
     /** Ask Android for a bit-perfect USB DAC mixer when one is connected (Android 14+). */
     val bitPerfect: StateFlow<Boolean> = _bitPerfect.asStateFlow()
     fun setBitPerfect(v: Boolean) { sp.edit().putBoolean("bit_perfect", v).apply(); _bitPerfect.value = v }
@@ -76,7 +76,7 @@ class Prefs(ctx: Context) {
         runCatching { ReplayGainMode.valueOf(o.getString("rg")) }.getOrNull()?.let(::setReplayGain)
         if (o.has("crossfade")) setCrossfade(o.optInt("crossfade", 0))
         if (o.has("cache_mb")) setCacheMb(o.optInt("cache_mb", 1024))
-        if (o.has("bit_perfect")) setBitPerfect(o.optBoolean("bit_perfect", true))
+        if (o.has("bit_perfect")) setBitPerfect(o.optBoolean("bit_perfect", false))
         if (o.has("hires_float")) setHiResOutput(o.optBoolean("hires_float", true))
         if (o.has("scrobble")) setScrobble(o.optBoolean("scrobble", true))
         if (o.has("light_glass")) setLightGlass(o.optBoolean("light_glass", false))

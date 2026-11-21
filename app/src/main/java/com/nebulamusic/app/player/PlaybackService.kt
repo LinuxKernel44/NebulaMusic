@@ -51,7 +51,11 @@ class PlaybackService : MediaSessionService() {
     private var cache: SimpleCache? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var starredIds: Set<String> = emptySet()
-    private val gain = GainAudioProcessor()
+    private var fading: FadingPlayer? = null
+    private val bitPerfect = BitPerfectGate { rate, channels, encoding ->
+        val c = (application as NebulaApp).container
+        BitPerfect.configure(this, c.prefs.bitPerfect.value, rate, channels, encoding)
+    }
 
     // Scrobbling: a play counts after half the track or 4 minutes, whichever comes first.
     private var scrobbleId: String? = null
@@ -74,26 +78,29 @@ class PlaybackService : MediaSessionService() {
         )
     }
 
+    /** ReplayGain as attenuation only (a volume can lower a loud track but cannot boost a quiet one past full scale). */
     private fun applyReplayGain(item: MediaItem?) {
         val c = (application as NebulaApp).container
         val mode = c.prefs.replayGain.value
-        gain.enabled = mode != ReplayGainMode.OFF
         val rg = item?.track()?.replayGain
         val db = when (mode) {
             ReplayGainMode.OFF -> 0f
             ReplayGainMode.TRACK -> rg?.trackGain ?: rg?.albumGain
             ReplayGainMode.ALBUM -> rg?.albumGain ?: rg?.trackGain
         } ?: rg?.fallbackGain ?: 0f
-        // Never push a track into clipping: cap the gain by its peak when known.
-        val peak = when (mode) { ReplayGainMode.ALBUM -> rg?.albumPeak ?: rg?.trackPeak; else -> rg?.trackPeak ?: rg?.albumPeak }
-        val maxDb = if (peak != null && peak > 0f) (-20f * Math.log10(peak.toDouble()).toFloat()) else 0f
-        gain.setGainDb(if (db > maxDb) maxDb else db)
+        val linear = Math.pow(10.0, db.coerceAtMost(0f) / 20.0).toFloat()
+        fading?.baseGain = linear
     }
 
-    private fun applyOutput(item: MediaItem?) {
+    /**
+     * Bit-perfect is configured by [BitPerfectGate] when a format reaches the sink. Here we only react to the setting being
+     * switched off or a DAC being (un)plugged: never leave a preferred mixer format behind that the next track could not match.
+     */
+    private fun applyOutput() {
         val c = (application as NebulaApp).container
-        val t = item?.track()
-        BitPerfect.apply(this, c.prefs.bitPerfect.value, t?.samplingRate ?: 0, t?.bitDepth ?: 0, c.prefs.hiResOutput.value)
+        val on = c.prefs.bitPerfect.value
+        if (!on) BitPerfect.clear(this)
+        BitPerfect.refreshDevice(this, on)
     }
 
     /** Adds the running play segment to [playedMs] (no polling loop: updated on play / pause / track change). */
@@ -131,6 +138,8 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val container = (application as NebulaApp).container
+        // A preferred mixer format survives the app: clear whatever an earlier run left, the pipeline sets it again when it can match.
+        BitPerfect.clear(this)
         val simpleCache = SimpleCache(
             File(cacheDir, "audio"), LeastRecentlyUsedCacheEvictor(container.prefs.cacheMb.value * 1024L * 1024L),
             StandaloneDatabaseProvider(this)
@@ -149,9 +158,9 @@ class PlaybackService : MediaSessionService() {
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean
             ): AudioSink = DefaultAudioSink.Builder(context)
-                .setEnableFloatOutput(container.prefs.hiResOutput.value)
+                .setEnableFloatOutput(container.prefs.hiResOutput.value && !container.prefs.bitPerfect.value)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                .setAudioProcessors(arrayOf(gain, FadeInAudioProcessor()))
+                .setAudioProcessors(arrayOf(FadeInAudioProcessor(), bitPerfect))
                 .build()
         }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
@@ -181,7 +190,8 @@ class PlaybackService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        session = MediaSession.Builder(this, FadingPlayer(exo))
+        val fp = FadingPlayer(exo).also { fading = it }
+        session = MediaSession.Builder(this, fp)
             .setSessionActivity(openApp)
             .setCallback(object : MediaSession.Callback {
                 override fun onConnect(
@@ -205,7 +215,7 @@ class PlaybackService : MediaSessionService() {
                 ): ListenableFuture<SessionResult> {
                     when (customCommand.customAction) {
                         CMD_STOP_AFTER -> exo.pauseAtEndOfMediaItems = args.getBoolean("on")
-                        CMD_SETTINGS -> { applyReplayGain(exo.currentMediaItem); applyOutput(exo.currentMediaItem) }
+                        CMD_SETTINGS -> { applyReplayGain(exo.currentMediaItem); applyOutput() }
                         CMD_TOGGLE_FAV -> exo.currentMediaItem?.mediaId?.let { container.toggleStar(it) }
                         else -> return super.onCustomCommand(session, controller, customCommand, args)
                     }
@@ -220,7 +230,6 @@ class PlaybackService : MediaSessionService() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 refreshLike()
                 applyReplayGain(mediaItem)
-                applyOutput(mediaItem)
                 startScrobble(container, mediaItem, exo.duration.coerceAtLeast(0), exo.isPlaying)
             }
 
@@ -238,18 +247,25 @@ class PlaybackService : MediaSessionService() {
             }
         }
         scope.launch { container.prefs.replayGain.collect { applyReplayGain(exo.currentMediaItem) } }
-        scope.launch { container.prefs.bitPerfect.collect { applyOutput(exo.currentMediaItem) } }
+        scope.launch { container.prefs.bitPerfect.collect { applyOutput() } }
         // A DAC plugged in (or out) while playing: redo the routing. Also once the AudioTrack really exists.
         (getSystemService(android.media.AudioManager::class.java))?.registerAudioDeviceCallback(
             object : android.media.AudioDeviceCallback() {
-                override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) { applyOutput(exo.currentMediaItem) }
-                override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) { applyOutput(exo.currentMediaItem) }
+                override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) { applyOutput() }
+                override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) { applyOutput() }
             },
             android.os.Handler(mainLooper)
         )
+        // Safety net: if the bit-perfect output ever breaks the stream (dead AudioTrack, write errors), switch the option off and
+        // clear the system format right away, so the sound comes back instead of looping silently.
         exo.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
-            override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) {
-                scope.launch { kotlinx.coroutines.delay(250); applyOutput(exo.currentMediaItem) }
+            override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSinkError: Exception) {
+                if (BitPerfect.info.value.state == BpState.ACTIVE) {
+                    android.util.Log.w("NebulaBitPerfect", "audio sink error with bit-perfect on: disabling it", audioSinkError)
+                    BitPerfect.clear(this@PlaybackService)
+                    container.prefs.setBitPerfect(false)
+                    applyOutput()
+                }
             }
         })
     }
@@ -266,7 +282,7 @@ class PlaybackService : MediaSessionService() {
             while (true) {
                 val fadeMs = container.prefs.crossfade.value * 1000L
                 if (fadeMs <= 0L || !exo.isPlaying) {
-                    if (shaping) exo.volume = 1f
+                    if (shaping) exo.volume = fading?.baseGain ?: 1f
                     break
                 }
                 val dur = exo.duration
@@ -278,8 +294,9 @@ class PlaybackService : MediaSessionService() {
                         pos < fadeMs && exo.currentMediaItemIndex > 0 -> pos.toFloat() / fadeMs
                         else -> 1f
                     }.coerceIn(0f, 1f)
-                    if (v < 1f) { exo.volume = v; shaping = true }
-                    else if (shaping) { exo.volume = 1f; shaping = false }
+                    val base = fading?.baseGain ?: 1f
+                    if (v < 1f) { exo.volume = v * base; shaping = true }
+                    else if (shaping) { exo.volume = base; shaping = false }
                 }
                 kotlinx.coroutines.delay(100)
             }

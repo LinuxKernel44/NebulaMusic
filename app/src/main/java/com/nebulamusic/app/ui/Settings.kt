@@ -104,15 +104,18 @@ fun SettingsScreen(
                             BpState.NO_BP_MODE -> R.string.set_bitperfect_unsupported
                             BpState.ACTIVE -> R.string.set_bitperfect_active
                             BpState.REFUSED -> R.string.set_bitperfect_refused
+                            BpState.NO_MATCH -> R.string.set_bitperfect_nomatch
                             BpState.DISABLED -> R.string.set_bitperfect_sub
                         }, out.device ?: ""
                     ),
                     bitPerfect
                 ) { prefs.setBitPerfect(it); vm.settingsChanged() }
+                Text(stringResource(R.string.set_bitperfect_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
                 Text(stringResource(R.string.set_replaygain), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 2.dp))
                 for (m in ReplayGainMode.entries) OptionRow(rg == m, stringResource(when (m) { ReplayGainMode.OFF -> R.string.rg_off; ReplayGainMode.TRACK -> R.string.rg_track; ReplayGainMode.ALBUM -> R.string.rg_album }), null) {
                     prefs.setReplayGain(m); vm.settingsChanged()
                 }
+                Text(stringResource(R.string.set_replaygain_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
                 Text(stringResource(R.string.set_fade), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 2.dp))
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (s in listOf(0, 2, 4, 6, 8)) Chip(if (s == 0) stringResource(R.string.off) else "${s}s", crossfade == s) { prefs.setCrossfade(s); vm.settingsChanged() }

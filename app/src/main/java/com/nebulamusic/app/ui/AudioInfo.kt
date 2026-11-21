@@ -135,14 +135,15 @@ fun AudioInfoContent() {
                     BpState.DISABLED -> R.string.ai_bp_available
                     BpState.NO_BP_MODE -> R.string.ai_bp_unsupported
                     BpState.REFUSED -> R.string.ai_bp_refused
+                    BpState.NO_MATCH -> R.string.ai_bp_nomatch
                     BpState.NO_DEVICE -> R.string.ai_bp_nousb
                 }
             ),
             bp.applied?.let { stringResource(R.string.ai_bp_format, it) } ?: "",
             if (bp.state == BpState.REFUSED && bp.system != null) stringResource(R.string.ai_bp_system, bp.system!!) else "",
-            if (bp.state == BpState.REFUSED && bp.attempts.isNotEmpty()) stringResource(R.string.ai_bp_attempts, bp.attempts.joinToString("\n")) else "",
+            if ((bp.state == BpState.REFUSED || bp.state == BpState.NO_MATCH) && bp.attempts.isNotEmpty()) stringResource(R.string.ai_bp_attempts, bp.attempts.joinToString("\n")) else "",
             if (bp.formats.isNotEmpty()) stringResource(R.string.ai_bp_formats, bp.formats.joinToString(" / ")) else "",
-            if (bp.state == BpState.REFUSED) "Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}) · ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}" else ""
+            if (bp.state == BpState.REFUSED || bp.state == BpState.NO_MATCH) "Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}) · ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}" else ""
         )
         Spacer(Modifier.height(10.dp))
     }

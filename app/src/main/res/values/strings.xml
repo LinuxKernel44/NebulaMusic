@@ -106,6 +106,7 @@
     <string name="ai_bitperfect">Bit-perfect USB</string>
     <string name="ai_bp_active">Active: the DAC receives the untouched PCM stream</string>
     <string name="ai_bp_available">Switched off in Settings</string>
+    <string name="ai_bp_nomatch">On, but this DAC has no bit-perfect mode for this song\'s sample rate: normal output is used</string>
     <string name="ai_bp_refused">On, but Android refused to enable it for this device and song</string>
     <string name="ai_bp_format">Mixer format: %1$s</string>
     <string name="ai_bp_system">The system currently holds: %1$s</string>
@@ -175,14 +176,17 @@
     <string name="set_audio">AUDIO</string>
     <string name="set_hires">Hi-res output (32-bit float)</string>
     <string name="set_hires_sub">Keeps 24-bit audio intact instead of truncating it to 16 bits. Applies after restarting the app.</string>
-    <string name="set_bitperfect">Bit-perfect USB DAC</string>
-    <string name="set_bitperfect_sub">Sends the audio to %1$s untouched, at the song\'s own sample rate.</string>
+    <string name="set_bitperfect">Bit-perfect USB DAC (16-bit, experimental)</string>
+    <string name="set_bitperfect_note">Applies after restarting the app. While it is on, songs are played as 16-bit integer PCM (the only format the player can send to a bit-perfect DAC), so 24-bit songs are not played in hi-res and the float output above is not used. Songs whose sample rate the DAC does not list play through the normal output. If it ever breaks the sound it switches itself off.</string>
+    <string name="set_bitperfect_sub">Sends the audio to %1$s as integer PCM at the song\'s own sample rate, with no mixing or resampling. If it ever breaks the sound it switches itself off.</string>
     <string name="set_bitperfect_active">Active on %1$s: no mixing, no resampling.</string>
     <string name="set_bitperfect_nousb">Connect a USB DAC to use it. Needs Android 14 or later.</string>
     <string name="set_bitperfect_old">Needs Android 14 or later.</string>
+    <string name="set_bitperfect_nomatch">%1$s supports it, but not for the current song\'s sample rate: normal output is used for this song.</string>
     <string name="set_bitperfect_refused">%1$s supports it, but Android refused it for the current song. See Audio info for the formats the device accepts.</string>
     <string name="set_bitperfect_unsupported">%1$s does not offer a bit-perfect mode.</string>
     <string name="set_replaygain">ReplayGain</string>
+    <string name="set_replaygain_note">Lowers loud songs only: a quiet song is never boosted.</string>
     <string name="rg_off">Off (bit-transparent)</string>
     <string name="rg_track">Track gain</string>
     <string name="rg_album">Album gain</string>

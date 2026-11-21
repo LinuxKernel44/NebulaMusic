@@ -65,41 +65,18 @@ class FadeInAudioProcessor(private val fadeMs: Int = 25) : BaseAudioProcessor() 
 }
 
 /**
- * Constant gain (ReplayGain). Completely inactive at 0 dB, so the stream stays bit-identical when the feature is off.
+ * Last stage of the chain (only used by the 16-bit integer output path: Media3 does not run custom processors on the float path).
+ * It never changes a sample; it only tells [configure] the exact format reaching the sink, before the AudioTrack is created, so the
+ * bit-perfect mixer can be configured to match it (or released when it cannot).
  */
 @OptIn(UnstableApi::class)
-class GainAudioProcessor : BaseAudioProcessor() {
-    @Volatile private var gain = 1f
-    /** Only part of the chain while ReplayGain is on (takes effect at the next flush). */
-    @Volatile var enabled = false
-
-    fun setGainDb(db: Float) {
-        val g = Math.pow(10.0, db / 20.0).toFloat()
-        gain = g
-    }
-
-    override fun isActive(): Boolean = super.isActive() && enabled
-
+class BitPerfectGate(private val configure: (sampleRate: Int, channelCount: Int, encoding: Int) -> Unit) : BaseAudioProcessor() {
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
-            return AudioProcessor.AudioFormat.NOT_SET
-        }
-        return inputAudioFormat
+        configure(inputAudioFormat.sampleRate, inputAudioFormat.channelCount, inputAudioFormat.encoding)
+        return AudioProcessor.AudioFormat.NOT_SET // inactive: samples pass through untouched
     }
 
-    override fun queueInput(inputBuffer: ByteBuffer) {
-        if (!inputBuffer.hasRemaining()) return
-        val out = replaceOutputBuffer(inputBuffer.remaining())
-        val g = gain
-        if (inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT) {
-            while (inputBuffer.remaining() >= 4) out.putFloat((inputBuffer.float * g).coerceIn(-1f, 1f))
-        } else {
-            while (inputBuffer.remaining() >= 2) {
-                out.putShort((inputBuffer.short * g).toInt().coerceIn(-32768, 32767).toShort())
-            }
-        }
-        out.flip()
-    }
+    override fun queueInput(inputBuffer: ByteBuffer) = Unit // never called while inactive
 }
 
 /**
@@ -116,6 +93,13 @@ class FadingPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     private var rampActive = false
     private var pendingRestore = false
 
+    /** ReplayGain attenuation (0..1): the level every ramp and every volume request is scaled by. */
+    @Volatile var baseGain = 1f
+        set(v) { field = v.coerceIn(0f, 1f); if (!rampActive && !fadingOut) exo.volume = field }
+
+    override fun setVolume(volume: Float) { exo.volume = volume.coerceIn(0f, 1f) * baseGain }
+    override fun getVolume(): Float = if (baseGain > 0f) (exo.volume / baseGain).coerceIn(0f, 1f) else exo.volume
+
     private val restore = Runnable { restoreVolume() }
 
     init {
@@ -131,7 +115,7 @@ class FadingPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     private fun restoreVolume() {
         if (pendingRestore && !rampActive) {
             pendingRestore = false
-            exo.volume = 1f
+            exo.volume = baseGain
         }
     }
 
@@ -198,11 +182,11 @@ class FadingPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
         handler.removeCallbacks(restore)
         if (exo.playWhenReady) {
             exo.play()
-            if (exo.volume < 1f && !rampActive) ramp(1f, FADE_IN_MS)
+            if (exo.volume < baseGain && !rampActive) ramp(baseGain, FADE_IN_MS)
         } else {
             exo.volume = 0f
             exo.play()
-            ramp(1f, FADE_IN_MS)
+            ramp(baseGain, FADE_IN_MS)
         }
     }
 
