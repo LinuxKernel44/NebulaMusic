@@ -431,10 +431,13 @@ fun ConfirmDialogContent(
 fun EqBars(playing: Boolean, color: Color, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
     val amp = remember { androidx.compose.animation.core.Animatable(if (playing) 1f else 0f) }
     val phase = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(playing) {
-        if (playing) {
+    val still = com.nebulamusic.app.glass.GlassDefaults.light // lighter mode: bars keep their shape, nothing redraws
+    LaunchedEffect(playing, still) {
+        if (playing && still) { amp.snapTo(0.6f) }
+        else if (playing) {
             launch { amp.animateTo(1f, androidx.compose.animation.core.tween(350)) }
-            while (true) phase.animateTo(phase.value + 1f, androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing))
+            // ~6 steps per second: a 60 fps loop would redraw every glass layer on screen 60 times a second.
+            while (true) { phase.snapTo(phase.value + 0.16f); kotlinx.coroutines.delay(160) }
         } else {
             amp.animateTo(0f, androidx.compose.animation.core.tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         }

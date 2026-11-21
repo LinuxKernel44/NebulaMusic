@@ -58,6 +58,9 @@ class PlaybackService : MediaSessionService() {
     private var scrobbleStart = 0L
     private var scrobbleDurationMs = 0L
     private var playedMs = 0L
+    /** elapsedRealtime when the current uninterrupted play segment began; 0 while paused. */
+    private var playSegmentStart = 0L
+    private var fadeJob: kotlinx.coroutines.Job? = null
 
     private fun likeLayout(player: Player): ImmutableList<CommandButton> {
         val id = player.currentMediaItem?.mediaId ?: return ImmutableList.of()
@@ -93,7 +96,17 @@ class PlaybackService : MediaSessionService() {
         BitPerfect.apply(this, c.prefs.bitPerfect.value, t?.samplingRate ?: 0, t?.bitDepth ?: 0, c.prefs.hiResOutput.value)
     }
 
+    /** Adds the running play segment to [playedMs] (no polling loop: updated on play / pause / track change). */
+    private fun addPlayed() {
+        if (playSegmentStart != 0L) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            playedMs += now - playSegmentStart
+            playSegmentStart = now
+        }
+    }
+
     private fun flushScrobble(c: com.nebulamusic.app.data.AppContainer) {
+        addPlayed()
         val id = scrobbleId ?: return
         val threshold = minOf(scrobbleDurationMs / 2, 240_000L).coerceAtLeast(30_000L)
         val start = scrobbleStart
@@ -104,13 +117,14 @@ class PlaybackService : MediaSessionService() {
         scope.launch(Dispatchers.IO) { runCatching { s.scrobble(id, true, start) } }
     }
 
-    private fun startScrobble(c: com.nebulamusic.app.data.AppContainer, item: MediaItem?, durationMs: Long) {
+    private fun startScrobble(c: com.nebulamusic.app.data.AppContainer, item: MediaItem?, durationMs: Long, playingNow: Boolean) {
         flushScrobble(c)
         val id = item?.mediaId ?: return
         scrobbleId = id
         scrobbleStart = System.currentTimeMillis()
         scrobbleDurationMs = item.track()?.durationSec?.times(1000L)?.takeIf { it > 0 } ?: durationMs
         playedMs = 0
+        playSegmentStart = if (playingNow) android.os.SystemClock.elapsedRealtime() else 0L
         if (c.prefs.scrobble.value) c.session.value?.let { s -> scope.launch(Dispatchers.IO) { runCatching { s.scrobble(id, false) } } }
     }
 
@@ -207,43 +221,16 @@ class PlaybackService : MediaSessionService() {
                 refreshLike()
                 applyReplayGain(mediaItem)
                 applyOutput(mediaItem)
-                startScrobble(container, mediaItem, exo.duration.coerceAtLeast(0))
+                startScrobble(container, mediaItem, exo.duration.coerceAtLeast(0), exo.isPlaying)
             }
 
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                addPlayed()
+                playSegmentStart = if (isPlaying) android.os.SystemClock.elapsedRealtime() else 0L
+                updateFade(exo, container)
+            }
         })
-        // Accumulates real listening time (pauses and seeks do not count).
-        scope.launch {
-            var last = android.os.SystemClock.elapsedRealtime()
-            while (true) {
-                kotlinx.coroutines.delay(1000)
-                val now = android.os.SystemClock.elapsedRealtime()
-                if (exo.isPlaying) playedMs += now - last
-                last = now
-            }
-        }
-        // Fade between songs: the end of a song fades out and the next one fades in (playback stays gapless otherwise).
-        scope.launch {
-            var shaping = false
-            while (true) {
-                kotlinx.coroutines.delay(80)
-                val fadeMs = container.prefs.crossfade.value * 1000L
-                if (fadeMs <= 0L || !exo.isPlaying) {
-                    if (shaping && fadeMs <= 0L) { exo.volume = 1f; shaping = false }
-                    continue
-                }
-                val dur = exo.duration
-                val pos = exo.currentPosition
-                if (dur <= 0L || dur < fadeMs * 3) continue
-                val remaining = dur - pos
-                val v = when {
-                    remaining < fadeMs -> remaining.toFloat() / fadeMs
-                    pos < fadeMs && exo.currentMediaItemIndex > 0 -> pos.toFloat() / fadeMs
-                    else -> 1f
-                }.coerceIn(0f, 1f)
-                if (v < 1f) { exo.volume = v; shaping = true }
-                else if (shaping) { exo.volume = 1f; shaping = false }
-            }
-        }
+        scope.launch { container.prefs.crossfade.collect { updateFade(exo, container) } }
         scope.launch {
             container.starred.collect { ids ->
                 starredIds = ids
@@ -265,6 +252,38 @@ class PlaybackService : MediaSessionService() {
                 scope.launch { kotlinx.coroutines.delay(250); applyOutput(exo.currentMediaItem) }
             }
         })
+    }
+
+    /**
+     * Fade between songs: the end of a song fades out and the next one fades in (playback stays gapless otherwise).
+     * The loop only exists while something is playing AND the option is on; it is not left spinning in the background.
+     */
+    private fun updateFade(exo: ExoPlayer, container: com.nebulamusic.app.data.AppContainer) {
+        if (!(exo.isPlaying && container.prefs.crossfade.value > 0)) return
+        if (fadeJob?.isActive == true) return
+        fadeJob = scope.launch {
+            var shaping = false
+            while (true) {
+                val fadeMs = container.prefs.crossfade.value * 1000L
+                if (fadeMs <= 0L || !exo.isPlaying) {
+                    if (shaping) exo.volume = 1f
+                    break
+                }
+                val dur = exo.duration
+                val pos = exo.currentPosition
+                if (dur > 0L && dur >= fadeMs * 3) {
+                    val remaining = dur - pos
+                    val v = when {
+                        remaining < fadeMs -> remaining.toFloat() / fadeMs
+                        pos < fadeMs && exo.currentMediaItemIndex > 0 -> pos.toFloat() / fadeMs
+                        else -> 1f
+                    }.coerceIn(0f, 1f)
+                    if (v < 1f) { exo.volume = v; shaping = true }
+                    else if (shaping) { exo.volume = 1f; shaping = false }
+                }
+                kotlinx.coroutines.delay(100)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

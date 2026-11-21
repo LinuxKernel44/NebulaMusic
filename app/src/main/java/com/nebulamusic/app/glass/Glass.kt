@@ -121,6 +121,12 @@ object GlassDefaults {
     /** Follows the artwork of the current track (see AppRoot); reading it from composition recomposes on change. */
     var accentState by androidx.compose.runtime.mutableStateOf(DefaultAccent)
     val Accent: Color get() = accentState
+
+    /**
+     * Lighter glass: no lens refraction, no shadow and a small blur. Much cheaper for the GPU, so the phone stays cooler.
+     * Read while drawing, so flipping it re-draws every glass element.
+     */
+    var light by androidx.compose.runtime.mutableStateOf(false)
 }
 
 /** The backdrop behind the current top-level screen, shared with every glass element. */
@@ -146,10 +152,10 @@ fun Modifier.glass(
     shape = shape,
     effects = {
         vibrancy()
-        blur(blurRadius.toPx())
-        if (lensHeight > 0.dp) lens(lensHeight.toPx(), lensAmount.toPx())
+        blur((if (GlassDefaults.light) minOf(blurRadius, 3.dp) else blurRadius).toPx())
+        if (!GlassDefaults.light && lensHeight > 0.dp) lens(lensHeight.toPx(), lensAmount.toPx())
     },
-    shadow = if (shadowOn) ({ Shadow.Default }) else null,
+    shadow = if (shadowOn) ({ if (GlassDefaults.light) null else Shadow.Default }) else null,
     layerBlock = layerBlock,
     onDrawSurface = {
         if (tint.isSpecified) {

@@ -313,7 +313,7 @@ private fun WaveCursor(
                 last = 0L
                 // Sub-pixel moves are invisible: only redraw once the cursor has moved ~1 px.
                 if (kotlin.math.abs(d) > 0.0012f) shownF = tgt
-                kotlinx.coroutines.delay(60)
+                kotlinx.coroutines.delay(500)
             }
         }
     }
@@ -741,7 +741,9 @@ private fun Tab.icon(): ImageVector = when (this) {
 @Composable
 fun GlassMiniPlayer(vm: MainViewModel, backdrop: Backdrop, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val ui by vm.player.state.collectAsState()
-    val position by vm.player.position.collectAsState()
+    // Only the whole second matters for the thin bar: recomposing (and re-drawing every glass layer) 5x per second is costly.
+    val positionState = vm.player.position.collectAsState()
+    val posSec by remember { derivedStateOf { positionState.value / 1000 } }
     val beat = ui.track ?: return
     val duration = ui.durationMs.takeIf { it > 0 } ?: (beat.durationSec * 1000L)
 
@@ -782,7 +784,7 @@ fun GlassMiniPlayer(vm: MainViewModel, backdrop: Backdrop, onOpen: () -> Unit, m
                 )
             }
         }
-        val frac = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        val frac = if (duration > 0) ((posSec * 1000L).toFloat() / duration).coerceIn(0f, 1f) else 0f
         // Touch or drag the bar to seek (same fade-out / jump / fade-in as the big seekbar). The bar swallows these
         // gestures, so they neither open the player nor skip to the previous / next song.
         var scrubFrac by remember { mutableStateOf<Float?>(null) }

@@ -46,6 +46,7 @@ fun SettingsScreen(
     val bitPerfect by prefs.bitPerfect.collectAsState()
     val hiRes by prefs.hiResOutput.collectAsState()
     val scrobble by prefs.scrobble.collectAsState()
+    val lightGlass by prefs.lightGlass.collectAsState()
     val ask by vm.exportAsk.collectAsState()
     val dir by vm.exportDir.collectAsState()
     val out by BitPerfect.info.collectAsState()
@@ -88,6 +89,9 @@ fun SettingsScreen(
                     vm.setQuality(q); vm.settingsChanged()
                 }
                 Text(stringResource(R.string.set_quality_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+
+                SectionTitle(stringResource(R.string.set_display))
+                SwitchRow(stringResource(R.string.set_light_glass), stringResource(R.string.set_light_glass_sub), lightGlass) { prefs.setLightGlass(it) }
 
                 SectionTitle(stringResource(R.string.set_audio))
                 SwitchRow(stringResource(R.string.set_hires), stringResource(R.string.set_hires_sub), hiRes) { prefs.setHiResOutput(it) }

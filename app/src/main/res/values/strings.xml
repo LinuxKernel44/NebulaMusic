@@ -167,6 +167,9 @@
     <string name="q_opus_128">Opus 128 kbps</string>
     <string name="q_transcoded_sub">Transcoded by the server</string>
     <string name="set_quality_note">Downloads always keep the original file. Applies to the next song you start.</string>
+    <string name="set_display">DISPLAY</string>
+    <string name="set_light_glass">Lighter glass effects</string>
+    <string name="set_light_glass_sub">Turns off the lens refraction and shadows and keeps a small blur. Much easier on the GPU: the phone stays cooler and the battery lasts longer.</string>
     <string name="set_audio">AUDIO</string>
     <string name="set_hires">Hi-res output (32-bit float)</string>
     <string name="set_hires_sub">Keeps 24-bit audio intact instead of truncating it to 16 bits. Applies after restarting the app.</string>

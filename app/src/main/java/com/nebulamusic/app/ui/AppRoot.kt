@@ -178,6 +178,12 @@ fun AppRoot(vm: MainViewModel) {
     val density = LocalDensity.current
     val sheetOpen = menuTrack != null || pickerTracks != null || queueOpen || audioInfoOpen || dialog != null
 
+    // The full-screen recording used by sheets and dialogs costs a whole extra pass per frame: only keep it while one is open
+    // (plus a short hold so closing animations still have something to sample).
+    var overlayHold by remember { mutableStateOf(false) }
+    LaunchedEffect(sheetOpen) { if (sheetOpen) overlayHold = true else { kotlinx.coroutines.delay(500); overlayHold = false } }
+    val overlayActive = sheetOpen || overlayHold
+
     BackHandler(enabled = selecting) { clearSelection() }
     BackHandler(enabled = menuTrack != null) { menuTrack = null }
     BackHandler(enabled = pickerTracks != null) { pickerTracks = null }
@@ -196,6 +202,8 @@ fun AppRoot(vm: MainViewModel) {
         val (c, blur) = loadArtInfo(ctx, coverUrl)
         art = if (blur != null) ArtTheme(coverUrl, accentFrom(c), blur) else null
     }
+    val lightGlass by vm.prefs.lightGlass.collectAsState()
+    SideEffect { GlassDefaults.light = lightGlass }
     val accent by animateColorAsState(art?.accent ?: GlassDefaults.DefaultAccent, tween(700), label = "accent")
     SideEffect { GlassDefaults.accentState = accent }
 
@@ -259,7 +267,7 @@ fun AppRoot(vm: MainViewModel) {
         LocalScrollMemory provides scrollMemory,
     ) {
         Box(Modifier.fillMaxSize().background(Bg).onSizeChanged { rootHeight = it.height.toFloat(); rootWidth = it.width.toFloat() }) {
-          Box(Modifier.fillMaxSize().layerBackdrop(overlayBackdrop).background(Bg)) {
+          Box(Modifier.fillMaxSize().then(if (overlayActive) Modifier.layerBackdrop(overlayBackdrop) else Modifier).background(Bg)) {
             Box(
                 Modifier.fillMaxSize().imePadding().graphicsLayer { alpha = if (covering) 0f else 1f }
                     .backSwipe(

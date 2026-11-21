@@ -88,7 +88,7 @@ class PlayerController(
 
         scope.launch {
             while (true) {
-                delay(200)
+                delay(if (controller?.isPlaying == true) 250 else 1000)
                 val c = controller
                 if (c != null) _position.value = c.currentPosition.coerceAtLeast(0)
             }

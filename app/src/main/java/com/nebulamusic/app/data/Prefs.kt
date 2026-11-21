@@ -52,6 +52,11 @@ class Prefs(ctx: Context) {
     val scrobble: StateFlow<Boolean> = _scrobble.asStateFlow()
     fun setScrobble(v: Boolean) { sp.edit().putBoolean("scrobble", v).apply(); _scrobble.value = v }
 
+    private val _lightGlass = flow(sp.getBoolean("light_glass", false))
+    /** Cheaper glass (no refraction / shadows): cooler phone, longer battery. */
+    val lightGlass: StateFlow<Boolean> = _lightGlass.asStateFlow()
+    fun setLightGlass(v: Boolean) { sp.edit().putBoolean("light_glass", v).apply(); _lightGlass.value = v }
+
     // Save-to-folder
     private val _exportAsk = flow(sp.getBoolean("export_ask", true))
     val exportAsk: StateFlow<Boolean> = _exportAsk.asStateFlow()
@@ -63,7 +68,7 @@ class Prefs(ctx: Context) {
     fun toJson(): org.json.JSONObject = org.json.JSONObject()
         .put("grid", _grid.value).put("quality", _quality.value.name).put("rg", _replayGain.value.name)
         .put("crossfade", _crossfade.value).put("cache_mb", _cacheMb.value).put("bit_perfect", _bitPerfect.value)
-        .put("hires_float", _hiRes.value).put("scrobble", _scrobble.value)
+        .put("hires_float", _hiRes.value).put("scrobble", _scrobble.value).put("light_glass", _lightGlass.value)
 
     fun restore(o: org.json.JSONObject) {
         if (o.has("grid")) setGrid(o.optBoolean("grid", true))
@@ -74,5 +79,6 @@ class Prefs(ctx: Context) {
         if (o.has("bit_perfect")) setBitPerfect(o.optBoolean("bit_perfect", true))
         if (o.has("hires_float")) setHiResOutput(o.optBoolean("hires_float", true))
         if (o.has("scrobble")) setScrobble(o.optBoolean("scrobble", true))
+        if (o.has("light_glass")) setLightGlass(o.optBoolean("light_glass", false))
     }
 }
