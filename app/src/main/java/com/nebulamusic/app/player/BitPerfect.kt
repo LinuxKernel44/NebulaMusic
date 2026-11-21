@@ -35,6 +35,10 @@ data class OutputInfo(
     val applied: String? = null,
     /** Every bit-perfect format the device lists. */
     val formats: List<String> = emptyList(),
+    /** What Android reported for each configuration we tried ("... -> OK" / "... -> refused"). */
+    val attempts: List<String> = emptyList(),
+    /** What the system currently has as our preferred mixer format (may be older than the track). */
+    val system: String? = null,
 ) {
     val bitPerfect: Boolean get() = state == BpState.ACTIVE
     val supported: Boolean get() = state == BpState.ACTIVE || state == BpState.REFUSED || state == BpState.DISABLED
@@ -109,15 +113,28 @@ object BitPerfect {
                     { -Integer.bitCount(it.format.channelMask) },
                 )
             )
+            val desired = candidates.first()
+            val current = am.getPreferredMixerAttributes(attrs, dev)
+            // Idempotent: when the system already holds the right format there is nothing to ask again. Asking again while a
+            // track is playing can be refused, which used to overwrite a perfectly good state.
+            if (current != null && current.format.sampleRate == desired.format.sampleRate &&
+                current.format.encoding == desired.format.encoding && current.format.channelMask == desired.format.channelMask
+            ) {
+                _info.value = OutputInfo(name, true, BpState.ACTIVE, describe(current), formats, system = describe(current))
+                return
+            }
+            val attempts = ArrayList<String>()
             var chosen: AudioMixerAttributes? = null
             for (c in candidates.take(8)) {
-                if (am.setPreferredMixerAttributes(attrs, dev, c)) { chosen = c; break }
+                val ok = am.setPreferredMixerAttributes(attrs, dev, c)
+                attempts += "${describe(c)} → ${if (ok) "OK" else "refused"}"
+                if (ok) { chosen = c; break }
             }
             // Ask the system what it kept: the call can report success and still not stick.
-            val kept = if (chosen != null) am.getPreferredMixerAttributes(attrs, dev) else null
-            _info.value = if (kept != null) OutputInfo(name, true, BpState.ACTIVE, describe(kept), formats)
-            else OutputInfo(name, true, BpState.REFUSED, formats = formats)
-            android.util.Log.i("NebulaBitPerfect", "device=$name state=${_info.value.state} applied=${_info.value.applied} formats=$formats")
+            val kept = am.getPreferredMixerAttributes(attrs, dev)
+            _info.value = if (chosen != null && kept != null) OutputInfo(name, true, BpState.ACTIVE, describe(kept), formats, attempts, describe(kept))
+            else OutputInfo(name, true, BpState.REFUSED, formats = formats, attempts = attempts, system = kept?.let(::describe))
+            android.util.Log.i("NebulaBitPerfect", "device=$name sdk=${Build.VERSION.SDK_INT} track=${sampleRate}Hz/${bitDepth}bit state=${_info.value.state} attempts=$attempts system=${_info.value.system}")
         } catch (e: Exception) {
             android.util.Log.w("NebulaBitPerfect", "mixer attributes failed", e)
             _info.value = OutputInfo(name, true, BpState.REFUSED)

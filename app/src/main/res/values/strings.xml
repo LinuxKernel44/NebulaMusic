@@ -108,6 +108,8 @@
     <string name="ai_bp_available">Switched off in Settings</string>
     <string name="ai_bp_refused">On, but Android refused to enable it for this device and song</string>
     <string name="ai_bp_format">Mixer format: %1$s</string>
+    <string name="ai_bp_system">The system currently holds: %1$s</string>
+    <string name="ai_bp_attempts">Tried:\n%1$s</string>
     <string name="ai_bp_formats">The device accepts: %1$s</string>
     <string name="ai_bp_unsupported">This USB device does not offer a bit-perfect mode</string>
     <string name="ai_bp_old">Needs Android 14 or later</string>

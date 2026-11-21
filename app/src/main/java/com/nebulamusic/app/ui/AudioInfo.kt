@@ -139,7 +139,10 @@ fun AudioInfoContent() {
                 }
             ),
             bp.applied?.let { stringResource(R.string.ai_bp_format, it) } ?: "",
-            if (bp.formats.isNotEmpty()) stringResource(R.string.ai_bp_formats, bp.formats.joinToString(" / ")) else ""
+            if (bp.state == BpState.REFUSED && bp.system != null) stringResource(R.string.ai_bp_system, bp.system!!) else "",
+            if (bp.state == BpState.REFUSED && bp.attempts.isNotEmpty()) stringResource(R.string.ai_bp_attempts, bp.attempts.joinToString("\n")) else "",
+            if (bp.formats.isNotEmpty()) stringResource(R.string.ai_bp_formats, bp.formats.joinToString(" / ")) else "",
+            if (bp.state == BpState.REFUSED) "Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}) · ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}" else ""
         )
         Spacer(Modifier.height(10.dp))
     }
