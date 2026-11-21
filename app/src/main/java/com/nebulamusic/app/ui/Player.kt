@@ -221,7 +221,7 @@ private fun FullWaveform(
     morph: Float,
     playing: Boolean,
     scrubbing: Boolean,
-    cursorFrac: Float,
+    cursorFrac: () -> Float,
     shape: Float,
     playedFrac: () -> Float,
     fg: Color,
@@ -235,7 +235,7 @@ private fun FullWaveform(
     val playedNow by rememberUpdatedState(playedFrac)
     LaunchedEffect(Unit) {
         while (true) {
-            if (scrubbingNow) { barsF = cursorNow; withFrameNanos { } }
+            if (scrubbingNow) { withFrameNanos { }; barsF = cursorNow() }
             else {
                 // ~1% steps: the bar colours only matter at that granularity, and every change re-renders the glass above.
                 val q = (playedNow().coerceIn(0f, 1f) * 100f).toInt() / 100f
@@ -254,7 +254,8 @@ private fun FullWaveform(
         val cy = size.height / 2f
         val flatH = 6.dp.toPx()
         val maxH = size.height - 8.dp.toPx()
-        val f = barsF
+        // While scrubbing, read the finger position right here (draw phase): no frame of delay.
+        val f = if (scrubbingNow) cursorNow() else barsF
         val playedA = 0.66f
         val unplayedA = 0.28f
         val stagger = 0.55f
@@ -287,7 +288,7 @@ private fun FullWaveform(
 private fun WaveCursor(
     playing: Boolean,
     scrubbing: Boolean,
-    cursorFrac: Float,
+    cursorFrac: () -> Float,
     shape: Float,
     playedFrac: () -> Float,
     fg: Color,
@@ -300,7 +301,7 @@ private fun WaveCursor(
     LaunchedEffect(Unit) {
         var last = 0L
         while (true) {
-            if (scrubbingNow) { shownF = cursorNow; last = 0L; withFrameNanos { }; continue }
+            if (scrubbingNow) { shownF = cursorNow(); last = 0L; withFrameNanos { }; continue }
             val tgt = playedNow().coerceIn(0f, 1f)
             val d = tgt - shownF
             if (kotlin.math.abs(d) > 0.004f) {
@@ -312,7 +313,7 @@ private fun WaveCursor(
             } else {
                 last = 0L
                 // Sub-pixel moves are invisible: only redraw once the cursor has moved ~1 px.
-                if (kotlin.math.abs(d) > 0.0012f) shownF = tgt
+                if (kotlin.math.abs(d) > 0.003f) shownF = tgt
                 kotlinx.coroutines.delay(500)
             }
         }
@@ -323,7 +324,9 @@ private fun WaveCursor(
         val inner = size.width - 2 * m
         val cy = size.height / 2f
         val maxH = size.height - 8.dp.toPx()
-        val cx = m + bw / 2f + shownF.coerceIn(0f, 1f) * (inner - bw)
+        // While scrubbing, read the finger position right here (draw phase): the cursor sticks to the finger.
+        val pos = if (scrubbingNow) cursorNow() else shownF
+        val cx = m + bw / 2f + pos.coerceIn(0f, 1f) * (inner - bw)
         val half = (44.dp.toPx() + (maxH + 16.dp.toPx() - 44.dp.toPx()) * shape) / 2f
         drawRoundRect(
             fg.copy(alpha = 0.95f), Offset(cx - 1.5.dp.toPx(), cy - half), Size(3.dp.toPx(), half * 2),
@@ -419,6 +422,12 @@ fun PlayerScreen(
     // Scrub state
     var scrubbing by remember { mutableStateOf(false) }
     val cursor = remember { Animatable(0f) }
+    // Buttons above the waveform fade out while the seekbar is used and come back a moment after it is released.
+    val controlsAlpha = remember { Animatable(1f) }
+    LaunchedEffect(scrubbing) {
+        if (scrubbing) controlsAlpha.animateTo(0f, tween(200))
+        else { delay(650); controlsAlpha.animateTo(1f, tween(350)) }
+    }
     val pausedT by animateFloatAsState(if (paused) 1f else 0f, tween(260), label = "paused")
     val timeSp by animateFloatAsState(if (paused) 13f else 16f, tween(220), label = "timeSp")
 
@@ -532,7 +541,7 @@ fun PlayerScreen(
 
                 // Like / dislike / more (no pills)
                 val isFav = beat != null && beat.id in favs
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.graphicsLayer { alpha = controlsAlpha.value }, verticalAlignment = Alignment.CenterVertically) {
                     Adaptive(
                         sampler,
                         Modifier.width(50.dp).height(40.dp).clip(RoundedCornerShape(50))
@@ -561,7 +570,7 @@ fun PlayerScreen(
                 Spacer(Modifier.height(12.dp))
 
                 // Queue · play mode · shuffle (glass)
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.graphicsLayer { alpha = controlsAlpha.value }, verticalAlignment = Alignment.CenterVertically) {
                     GlassIconButton(onQueue, playerBackdrop, size = 42.dp, width = 70.dp) {
                         Icon(Icons.Rounded.QueueMusic, stringResource(R.string.queue), tint = Color.White.copy(alpha = 0.9f))
                     }
@@ -648,20 +657,20 @@ fun PlayerScreen(
                             FullWaveform(
                                 bins = bins, durationMs = binsDurMs, prevBins = prevBins, prevDurationMs = prevBinsDurMs,
                                 morph = morphAnim.value, playing = ui.active, scrubbing = scrubbing,
-                                cursorFrac = cursor.value, shape = 1f,
+                                cursorFrac = { cursor.value }, shape = 1f,
                                 playedFrac = playedFrac,
                                 fg = fg,
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
-                    }
-                    // Cursor lives outside waveBackdrop: gliding it must not re-render the glass buttons.
-                    Adaptive(sampler, Modifier.fillMaxSize()) { fg ->
-                        WaveCursor(
-                            playing = ui.active, scrubbing = scrubbing, cursorFrac = cursor.value,
-                            shape = 1f, playedFrac = playedFrac, fg = fg,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        // The cursor is part of what the glass buttons sample, so it shows through (refracted / blurred) behind them.
+                        Adaptive(sampler, Modifier.fillMaxSize()) { fg ->
+                            WaveCursor(
+                                playing = ui.active, scrubbing = scrubbing, cursorFrac = { cursor.value },
+                                shape = 1f, playedFrac = playedFrac, fg = fg,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                     // Scale the transport row down on narrow screens so the outer buttons are never clipped.
                     BoxWithConstraints(Modifier.align(Alignment.Center).fillMaxWidth(), contentAlignment = Alignment.Center) {
