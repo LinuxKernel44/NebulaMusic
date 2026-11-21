@@ -37,6 +37,7 @@ class Nav(
     val openSettings: () -> Unit,
     val openSearch: () -> Unit,
     val openLibrary: (LibSection) -> Unit,
+    val openCover: (String?) -> Unit = {},
 )
 
 @Composable

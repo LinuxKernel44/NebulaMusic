@@ -68,7 +68,11 @@ fun AlbumScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, onM
                     contentPadding = PaddingValues(top = headerH, bottom = bottomInset + 8.dp),
                     header = {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Cover(album.coverArt, Modifier.fillMaxWidth(0.62f).aspectRatio(1f), 20.dp, px = 700)
+                            Cover(
+                                album.coverArt,
+                                Modifier.fillMaxWidth(0.62f).aspectRatio(1f).clip(RoundedCornerShape(20.dp)).clickable(enabled = album.coverArt != null) { nav.openCover(album.coverArt) },
+                                20.dp, px = 700
+                            )
                             Spacer(Modifier.height(14.dp))
                             Text(album.name, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, textAlign = TextAlign.Center, maxLines = 2)
                             if (album.artist.isNotBlank()) Text(

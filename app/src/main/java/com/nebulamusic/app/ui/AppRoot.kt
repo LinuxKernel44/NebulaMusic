@@ -70,6 +70,7 @@ fun AppRoot(vm: MainViewModel) {
     var menuTrack by remember { mutableStateOf<Track?>(null) }
     var pickerTracks by remember { mutableStateOf<List<Track>?>(null) }
     var queueOpen by remember { mutableStateOf(false) }
+    var coverView by remember { mutableStateOf<String?>(null) }
     var audioInfoOpen by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<PlaylistDialog?>(null) }
     var lastMenuTrack by remember { mutableStateOf<Track?>(null) }
@@ -254,6 +255,7 @@ fun AppRoot(vm: MainViewModel) {
             openSettings = { if (stack.none { it is Dest.Settings }) stack.add(Dest.Settings) },
             openSearch = { stack.clear(); tab = Tab.SEARCH },
             openLibrary = { s -> stack.clear(); section = s; tab = Tab.LIBRARY },
+            openCover = { coverView = it },
         )
     }
     var plVersion by remember { mutableIntStateOf(0) }
@@ -271,7 +273,7 @@ fun AppRoot(vm: MainViewModel) {
             Box(
                 Modifier.fillMaxSize().imePadding().graphicsLayer { alpha = if (covering) 0f else 1f }
                     .backSwipe(
-                        enabled = !needsLogin && !playerOpen && !sheetOpen && !selecting && stack.isNotEmpty() && stack.last() !is Dest.Login,
+                        enabled = !needsLogin && !playerOpen && coverView == null && !sheetOpen && !selecting && stack.isNotEmpty() && stack.last() !is Dest.Login,
                         onStart = { p -> backOrigin = p; backFx = 0f; backFy = 0f; backFade = 0f; backActive = true },
                         onDrag = { dx, dy ->
                             backFx = dx.coerceAtLeast(0f); backFy = dy
@@ -435,6 +437,7 @@ fun AppRoot(vm: MainViewModel) {
                 }
             }
           }
+            coverView?.let { art -> CoverViewer(art, onClosed = { coverView = null }) }
             // ---- Glass sheets and dialogs (always on top, sampling whichever screen is in front) ----
             GlassSheet(visible = menuTrack != null, onDismiss = { menuTrack = null }, backdrop = overlayBackdrop) {
                 lastMenuTrack?.let { t ->
