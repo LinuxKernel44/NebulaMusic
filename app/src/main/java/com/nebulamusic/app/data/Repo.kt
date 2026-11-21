@@ -33,7 +33,7 @@ class AppContainer(val ctx: Context) {
         .build()
     val prefs = Prefs(ctx)
     val servers = ServerStore(ctx)
-    val lastFm by lazy { LastFm(http, ctx) }
+    val listenBrainz by lazy { ListenBrainz(http, ctx) }
     val autoQueue by lazy { com.nebulamusic.app.player.AutoQueue(this) }
     val backup by lazy { Backup(this) }
     val exporter by lazy { Exporter(this) }

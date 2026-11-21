@@ -416,18 +416,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setQuality(q: StreamQuality) { prefs.setQuality(q) }
     fun settingsChanged() = player.settingsChanged()
 
-    val lastFm = c.lastFm
-    val lastFmMessage = MutableStateFlow<String?>(null)
-    fun lastFmSave(key: String, secret: String?) = lastFm.saveCredentials(key, secret)
-    fun lastFmConnect(open: (String) -> Unit) = viewModelScope.launch {
-        lastFmMessage.value = null
-        runCatching { lastFm.beginAuth() }.onSuccess(open).onFailure { lastFmMessage.value = it.message }
+    val listenBrainz = c.listenBrainz
+    val listenBrainzMessage = MutableStateFlow<String?>(null)
+    fun listenBrainzConnect(token: String) = viewModelScope.launch {
+        listenBrainzMessage.value = null
+        runCatching { listenBrainz.connect(token) }.onFailure { listenBrainzMessage.value = it.message ?: "Connection failed" }
     }
-    fun lastFmFinish() = viewModelScope.launch {
-        lastFmMessage.value = null
-        runCatching { lastFm.finishAuth() }.onFailure { lastFmMessage.value = it.message }
-    }
-    fun lastFmDisconnect() = lastFm.disconnect()
+    fun listenBrainzDisconnect() = listenBrainz.disconnect()
 
     fun exportBackup(uri: android.net.Uri, done: (Result<Int>) -> Unit) {
         viewModelScope.launch { done(runCatching { c.backup.export(uri) }) }

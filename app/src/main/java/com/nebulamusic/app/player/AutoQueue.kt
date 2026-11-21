@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
  * what is playing is appended.
  *
  * Normal mode asks the server for similar songs, then falls back to the same artist / genre / era.
- * "High accuracy" additionally asks Last.fm (track.getSimilar), weighs the result with the user's own listening
+ * "High accuracy" additionally asks ListenBrainz (similar recordings), weighs the result with the user's own listening
  * taste, and keeps only what exists in the Navidrome library.
  */
 class AutoQueue(private val c: AppContainer) {
@@ -73,10 +73,10 @@ class AutoQueue(private val c: AppContainer) {
 
         val ordered = ArrayList<Track>()
 
-        // 1. High accuracy: Last.fm similarity filtered through the user's taste, resolved in the library.
-        val lfm = c.lastFm
-        if (c.prefs.highAccuracy.value && lfm.state.value.connected) {
-            runCatching { ordered += viaLastFm(s, lfm, seed, prev, exclude) }
+        // 1. High accuracy: ListenBrainz similarity filtered through the user's taste, resolved in the library.
+        val lb = c.listenBrainz
+        if (c.prefs.highAccuracy.value && lb.state.value.connected) {
+            runCatching { ordered += viaListenBrainz(s, lb, seed, prev, exclude) }
         }
         // 2. Server-side similarity.
         if (ordered.size < 25) {
@@ -120,10 +120,13 @@ class AutoQueue(private val c: AppContainer) {
         return out
     }
 
-    private suspend fun viaLastFm(s: Session, lfm: LastFm, seed: Track, prev: Track?, exclude: Set<String>): List<Track> {
-        val scores = LinkedHashMap<String, LfmTrack>()
+    private suspend fun viaListenBrainz(s: Session, lb: ListenBrainz, seed: Track, prev: Track?, exclude: Set<String>): List<Track> {
+        val scores = LinkedHashMap<String, Suggestion>()
+        var artistMbid: String? = null
         suspend fun add(t: Track, weight: Double) {
-            for (x in lfm.similarTracks(t.artist, t.title)) {
+            val rec = if (t.musicBrainzId != null) Recording(t.musicBrainzId, emptyList()) else lb.lookup(t.artist, t.title) ?: return
+            if (t === seed) artistMbid = rec.artistMbids.firstOrNull()
+            for (x in lb.similarRecordings(rec.mbid)) {
                 val k = x.artist.fold() + "|" + x.title.fold()
                 val old = scores[k]
                 scores[k] = if (old == null) x.copy(score = x.score * weight) else old.copy(score = old.score + x.score * weight)
@@ -131,7 +134,7 @@ class AutoQueue(private val c: AppContainer) {
         }
         add(seed, 1.0)
         if (prev != null) runCatching { add(prev, 0.5) }
-        val taste = runCatching { lfm.taste() }.getOrNull()
+        val taste = runCatching { lb.taste() }.getOrNull()
         val ranked = scores.values.map { x ->
             var sc = x.score
             if (taste != null) {
@@ -149,19 +152,19 @@ class AutoQueue(private val c: AppContainer) {
             val chunk = ranked.subList(i, minOf(i + 6, ranked.size)); i += 6
             out += coroutineScope { chunk.map { x -> async { findInLibrary(s, x) } }.awaitAll() }.filterNotNull().filter { it.id !in exclude }
         }
-        if (out.size < 8) {
-            // Few exact hits: widen to artists Last.fm links to the current one.
-            val near = lfm.similarArtists(seed.artist, 12)
-            for (a in near) {
+        val am = artistMbid
+        if (out.size < 8 && am != null) {
+            // Few exact hits: widen to artists ListenBrainz links to the current one.
+            for (name in runCatching { lb.similarArtists(am) }.getOrDefault(emptyList())) {
                 if (out.size >= 22) break
-                val r = runCatching { s.search(a.artist, 1, 0, 6).tracks }.getOrDefault(emptyList())
-                out += r.filter { it.artist.fold() == a.artist.fold() && it.id !in exclude }.take(2)
+                val r = runCatching { s.search(name, 1, 0, 6).tracks }.getOrDefault(emptyList())
+                out += r.filter { it.artist.fold() == name.fold() && it.id !in exclude }.take(2)
             }
         }
         return out
     }
 
-    private suspend fun findInLibrary(s: Session, x: LfmTrack): Track? {
+    private suspend fun findInLibrary(s: Session, x: Suggestion): Track? {
         val r = runCatching { s.search("${x.artist} ${x.title}", 0, 0, 8).tracks }.getOrDefault(emptyList())
         val a = x.artist.fold(); val t = x.title.fold()
         return r.firstOrNull { it.title.fold() == t && (it.artist.fold() == a || a in it.artist.fold() || it.artist.fold() in a) }

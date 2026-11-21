@@ -114,6 +114,7 @@ private class ApiSong(
     val playCount: Int = 0,
     val bpm: Int = 0,
     val replayGain: ReplayGain? = null,
+    val musicBrainzId: String? = null,
 )
 
 @Serializable
@@ -149,6 +150,7 @@ private fun ApiSong.toTrack() = Track(
     coverArt = coverArt ?: id, suffix = suffix, contentType = contentType, bitRate = bitRate,
     samplingRate = samplingRate, bitDepth = bitDepth, channels = channelCount, size = size,
     starred = starred != null, playCount = playCount, bpm = bpm, replayGain = replayGain,
+    musicBrainzId = musicBrainzId?.takeIf { it.isNotBlank() },
 )
 
 private fun ApiAlbum.toAlbum() = Album(

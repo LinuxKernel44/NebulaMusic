@@ -59,6 +59,7 @@ class PlaybackService : MediaSessionService() {
 
     // Scrobbling: a play counts after half the track or 4 minutes, whichever comes first.
     private var scrobbleId: String? = null
+    private var scrobbleTrack: com.nebulamusic.app.data.Track? = null
     private var scrobbleStart = 0L
     private var scrobbleDurationMs = 0L
     private var playedMs = 0L
@@ -119,6 +120,10 @@ class PlaybackService : MediaSessionService() {
         val start = scrobbleStart
         val counted = playedMs >= threshold
         scrobbleId = null
+        val track = scrobbleTrack
+        if (counted && track != null && c.prefs.listenBrainzListens.value && c.listenBrainz.state.value.connected) {
+            scope.launch(Dispatchers.IO) { c.listenBrainz.listen(track, start) }
+        }
         if (!counted || !c.prefs.scrobble.value) return
         val s = c.session.value ?: return
         scope.launch(Dispatchers.IO) { runCatching { s.scrobble(id, true, start) } }
@@ -128,6 +133,10 @@ class PlaybackService : MediaSessionService() {
         flushScrobble(c)
         val id = item?.mediaId ?: return
         scrobbleId = id
+        scrobbleTrack = item.track()
+        scrobbleTrack?.let { t ->
+            if (c.prefs.listenBrainzListens.value && c.listenBrainz.state.value.connected) scope.launch(Dispatchers.IO) { c.listenBrainz.playingNow(t) }
+        }
         scrobbleStart = System.currentTimeMillis()
         scrobbleDurationMs = item.track()?.durationSec?.times(1000L)?.takeIf { it > 0 } ?: durationMs
         playedMs = 0

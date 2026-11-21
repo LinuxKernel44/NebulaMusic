@@ -41,6 +41,8 @@ data class Track(
     val playCount: Int = 0,
     val bpm: Int = 0,
     val replayGain: ReplayGain? = null,
+    /** MusicBrainz recording id when the file is tagged with one. */
+    val musicBrainzId: String? = null,
 ) {
     val subtitle: String get() = listOf(artist, album).filter { it.isNotBlank() }.joinToString(" · ")
 

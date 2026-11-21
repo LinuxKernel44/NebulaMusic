@@ -49,8 +49,9 @@ fun SettingsScreen(
     val lightGlass by prefs.lightGlass.collectAsState()
     val autoplay by prefs.autoplay.collectAsState()
     val highAccuracy by prefs.highAccuracy.collectAsState()
-    val lfm by vm.lastFm.state.collectAsState()
-    val lfmMsg by vm.lastFmMessage.collectAsState()
+    val lb by vm.listenBrainz.state.collectAsState()
+    val lbMsg by vm.listenBrainzMessage.collectAsState()
+    val lbListens by prefs.listenBrainzListens.collectAsState()
     val ask by vm.exportAsk.collectAsState()
     val dir by vm.exportDir.collectAsState()
     val out by BitPerfect.info.collectAsState()
@@ -131,8 +132,10 @@ fun SettingsScreen(
                 SwitchRow(stringResource(R.string.set_autoplay_title), stringResource(R.string.set_autoplay_sub), autoplay) { prefs.setAutoplay(it) }
                 if (autoplay) {
                     SwitchRow(stringResource(R.string.set_hiacc), stringResource(R.string.set_hiacc_sub), highAccuracy) { prefs.setHighAccuracy(it) }
-                    if (highAccuracy) LastFmBlock(vm, lfm, lfmMsg)
                 }
+                SectionTitle(stringResource(R.string.set_lb))
+                ListenBrainzBlock(vm, lb, lbMsg)
+                if (lb.connected) SwitchRow(stringResource(R.string.set_lb_listens), stringResource(R.string.set_lb_listens_sub), lbListens) { prefs.setListenBrainzListens(it) }
 
                 SectionTitle(stringResource(R.string.set_cache))
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -344,41 +347,31 @@ private fun AppIconPicker() {
 }
 
 @Composable
-private fun LastFmField(value: String, onValue: (String) -> Unit, hint: String, password: Boolean = false) {
+private fun TokenField(value: String, onValue: (String) -> Unit, hint: String) {
     androidx.compose.foundation.text.BasicTextField(
         value, onValue, singleLine = true,
         textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
         cursorBrush = androidx.compose.ui.graphics.SolidColor(Accent),
-        visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrect = false, keyboardType = if (password) androidx.compose.ui.text.input.KeyboardType.Password else androidx.compose.ui.text.input.KeyboardType.Ascii),
+        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrect = false, keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(SurfaceHi).padding(horizontal = 14.dp, vertical = 13.dp),
         decorationBox = { inner -> Box { if (value.isEmpty()) Text(hint, color = Muted, fontSize = 15.sp); inner() } }
     )
 }
 
 @Composable
-private fun LastFmBlock(vm: MainViewModel, lfm: LastFmState, message: String?) {
+private fun ListenBrainzBlock(vm: MainViewModel, lb: ListenBrainzState, message: String?) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    var key by remember(lfm.apiKey) { mutableStateOf(lfm.apiKey) }
-    var secret by remember { mutableStateOf("") }
+    var token by remember { mutableStateOf("") }
     fun openUrl(u: String) { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-    if (lfm.connected) {
-        Text(stringResource(R.string.lfm_connected, lfm.user ?: ""), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-        ActionRow(Icons.Rounded.LinkOff, stringResource(R.string.lfm_disconnect)) { vm.lastFmDisconnect() }
+    if (lb.connected) {
+        Text(stringResource(R.string.lb_connected, lb.user ?: ""), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+        ActionRow(Icons.Rounded.LinkOff, stringResource(R.string.lb_disconnect)) { vm.listenBrainzDisconnect() }
     } else {
-        Text(stringResource(R.string.lfm_intro), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-        ActionRow(Icons.Rounded.OpenInNew, stringResource(R.string.lfm_get_key)) { openUrl("https://www.last.fm/api/account/create") }
-        LastFmField(key, { key = it }, stringResource(R.string.lfm_api_key))
-        LastFmField(secret, { secret = it }, if (lfm.hasSecret) stringResource(R.string.lfm_secret_saved) else stringResource(R.string.lfm_secret), password = true)
-        if (lfm.pendingToken == null) {
-            ActionRow(Icons.Rounded.Link, stringResource(R.string.lfm_connect)) {
-                vm.lastFmSave(key, secret.ifBlank { null }); secret = ""
-                vm.lastFmConnect(::openUrl)
-            }
-        } else {
-            Text(stringResource(R.string.lfm_approve), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-            ActionRow(Icons.Rounded.CheckCircle, stringResource(R.string.lfm_finish)) { vm.lastFmFinish() }
-        }
+        Text(stringResource(R.string.lb_intro), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+        ActionRow(Icons.Rounded.OpenInNew, stringResource(R.string.lb_get_token)) { openUrl("https://listenbrainz.org/settings/") }
+        TokenField(token, { token = it }, stringResource(R.string.lb_token))
+        ActionRow(Icons.Rounded.Link, stringResource(R.string.lb_connect)) { vm.listenBrainzConnect(token); token = "" }
     }
     if (message != null) Text(message, color = Color(0xFFFF8A80), fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
 }

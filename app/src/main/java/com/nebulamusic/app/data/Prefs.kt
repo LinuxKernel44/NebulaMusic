@@ -62,6 +62,11 @@ class Prefs(ctx: Context) {
     val highAccuracy: StateFlow<Boolean> = _highAccuracy.asStateFlow()
     fun setHighAccuracy(v: Boolean) { sp.edit().putBoolean("high_accuracy", v).apply(); _highAccuracy.value = v }
 
+    private val _lbListens = flow(sp.getBoolean("lb_listens", true))
+    /** Submit finished listens (and "now playing") to ListenBrainz while an account is connected. */
+    val listenBrainzListens: StateFlow<Boolean> = _lbListens.asStateFlow()
+    fun setListenBrainzListens(v: Boolean) { sp.edit().putBoolean("lb_listens", v).apply(); _lbListens.value = v }
+
     private val _lightGlass = flow(sp.getBoolean("light_glass", false))
     /** Cheaper glass (no refraction / shadows): cooler phone, longer battery. */
     val lightGlass: StateFlow<Boolean> = _lightGlass.asStateFlow()
@@ -79,7 +84,7 @@ class Prefs(ctx: Context) {
         .put("grid", _grid.value).put("quality", _quality.value.name).put("rg", _replayGain.value.name)
         .put("crossfade", _crossfade.value).put("cache_mb", _cacheMb.value).put("bit_perfect", _bitPerfect.value)
         .put("hires_float", _hiRes.value).put("scrobble", _scrobble.value).put("light_glass", _lightGlass.value)
-        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value)
+        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value).put("lb_listens", _lbListens.value)
 
     fun restore(o: org.json.JSONObject) {
         if (o.has("grid")) setGrid(o.optBoolean("grid", true))
@@ -92,6 +97,7 @@ class Prefs(ctx: Context) {
         if (o.has("scrobble")) setScrobble(o.optBoolean("scrobble", true))
         if (o.has("autoplay")) setAutoplay(o.optBoolean("autoplay", true))
         if (o.has("high_accuracy")) setHighAccuracy(o.optBoolean("high_accuracy", false))
+        if (o.has("lb_listens")) setListenBrainzListens(o.optBoolean("lb_listens", true))
         if (o.has("light_glass")) setLightGlass(o.optBoolean("light_glass", false))
     }
 }
