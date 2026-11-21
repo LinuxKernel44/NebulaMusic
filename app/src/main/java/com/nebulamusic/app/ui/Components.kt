@@ -290,7 +290,7 @@ val LocalSelection = compositionLocalOf { SelectionState(false, emptySet(), { },
 
 /** Round tick shown on the cover of a selected track. */
 @Composable
-private fun PickedMark(modifier: Modifier = Modifier) {
+internal fun PickedMark(modifier: Modifier = Modifier) {
     Box(modifier.background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
         Icon(Icons.Rounded.CheckCircle, null, tint = Accent, modifier = Modifier.size(30.dp))
     }

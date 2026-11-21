@@ -65,40 +65,58 @@ fun LibraryScreen(
 
     Box(Modifier.fillMaxSize()) {
         ScreenBackdrop {
+            val levels by vm.levels.collectAsState()
+            val level = levels[section] ?: vm.levelOf(section)
+            val setLevel = { l: Int -> vm.setLevel(section, l) }
+            @Composable
+            fun Tracks(tracks: List<Track>, key: String, header: (@Composable () -> Unit)? = null, onEnd: (() -> Unit)? = null) {
+                RegisterSelectable(tracks)
+                LibraryCollection(
+                    level, setLevel, tracks, { i, t -> "${t.id}#$i" }, key, headerH, bottom, header = header, onEnd = onEnd,
+                    row = { i, t ->
+                        TrackRow(
+                            t, current = env.ui.trackId == t.id, playing = env.ui.isPlaying && env.ui.trackId == t.id,
+                            favorite = t.id in env.favs, downloaded = env.dls.containsKey(t.id), progress = env.progress[t.id],
+                            onClick = { vm.play(tracks, i) }, onMenu = { onMenu(t) },
+                        )
+                    },
+                    tile = { i, t, cols -> TrackTile(t, cols, env.ui.trackId == t.id, env.ui.isPlaying && env.ui.trackId == t.id) { vm.play(tracks, i) } },
+                )
+            }
             when (section) {
                 LibSection.ARTISTS -> {
                     val st by vm.artists.collectAsState()
                     LoadView(st, vm::refreshArtists) { list ->
                         if (list.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
                         else {
-                            val ls = rememberKeptListState("artists")
-                            val sortedArtists = remember(list, spec) { sortArtists(list, spec) }
-                            Box(Modifier.fillMaxSize()) {
-                                LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
-                                    items(sortedArtists, key = { it.id }) { a -> ArtistRow(a) { nav.openArtist(a.id) } }
-                                }
-                                ListScrollbar(ls, headerH, bottom)
-                            }
+                            val sorted = remember(list, spec) { sortArtists(list, spec) }
+                            LibraryCollection(
+                                level, setLevel, sorted, { _, a -> a.id }, "artists", headerH, bottom,
+                                row = { _, a -> ArtistRow(a) { nav.openArtist(a.id) } },
+                                tile = { _, a, cols -> ArtistTile(a, cols) { nav.openArtist(a.id) } },
+                            )
                         }
                     }
                 }
 
                 LibSection.ALBUMS -> {
-                    val gs = rememberKeptGridState("albums")
+                    val albumTile: @Composable (Int, Album, Int) -> Unit = { _, a, cols -> AlbumTile(a, cols) { nav.openAlbum(a.id) } }
+                    val albumRow: @Composable (Int, Album) -> Unit = { _, a -> AlbumRow(a) { nav.openAlbum(a.id) } }
                     if (vm.albumsNative(spec)) {
                         val items by vm.albums.items.collectAsState()
                         val st by vm.albums.state.collectAsState()
-                        val near by remember { derivedStateOf { gs.layoutInfo.let { (it.visibleItemsInfo.lastOrNull()?.index ?: 0) >= it.totalItemsCount - 10 } } }
-                        LaunchedEffect(near, items.size) { if (near) vm.albums.more() }
                         if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.albums.reset() }) {
                             Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                        } else AlbumGrid(items, gs, nav, headerH, bottom)
+                        } else LibraryCollection(level, setLevel, items, { _, a -> a.id }, "albums", headerH, bottom, onEnd = vm.albums::more, row = albumRow, tile = albumTile)
                     } else {
                         val all by vm.albumsAll.collectAsState()
                         LaunchedEffect(Unit) { vm.loadAllAlbums() }
                         LoadView(all, { vm.loadAllAlbums(true) }) { list ->
                             if (list.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                            else AlbumGrid(remember(list, spec) { sortAlbums(list, spec) }, gs, nav, headerH, bottom)
+                            else LibraryCollection(
+                                level, setLevel, remember(list, spec) { sortAlbums(list, spec) }, { _, a -> a.id }, "albums", headerH, bottom,
+                                row = albumRow, tile = albumTile,
+                            )
                         }
                     }
                 }
@@ -109,13 +127,13 @@ fun LibraryScreen(
                         val st by vm.songs.state.collectAsState()
                         if (items.isEmpty()) LoadView(if (st is Load.Ok) Load.Ok(Unit) else st, { vm.songs.reset() }) {
                             Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                        } else TrackColumn(items, vm, env, onMenu, contentPadding = pad, onEndReached = vm.songs::more, stateKey = "songs")
+                        } else Tracks(items, "songs", onEnd = vm.songs::more)
                     } else {
                         val all by vm.songsAll.collectAsState()
                         LaunchedEffect(Unit) { vm.loadAllSongs() }
                         LoadView(all, { vm.loadAllSongs(true) }) { list ->
                             if (list.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                            else TrackColumn(remember(list, spec) { sortTracks(list, spec) }, vm, env, onMenu, contentPadding = pad, stateKey = "songs")
+                            else Tracks(remember(list, spec) { sortTracks(list, spec) }, "songs")
                         }
                     }
                 }
@@ -123,42 +141,40 @@ fun LibraryScreen(
                 LibSection.GENRES -> {
                     val st by vm.genres.collectAsState()
                     LoadView(st, vm::refreshGenres) { list ->
-                        val ls = rememberKeptListState("genres")
-                        val sortedGenres = remember(list, spec) { sortGenres(list, spec) }
-                        Box(Modifier.fillMaxSize()) {
-                            LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
-                                items(sortedGenres, key = { it.name }) { g ->
-                                    Row(
-                                        Modifier.fillMaxWidth().clickable { nav.openGenre(g.name) }.padding(horizontal = 20.dp, vertical = 14.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Rounded.Sell, null, tint = Accent)
-                                        Spacer(Modifier.width(16.dp))
-                                        Column(Modifier.weight(1f)) {
-                                            Text(g.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
-                                            Text(
-                                                pluralStringResource(R.plurals.n_songs, g.songCount, g.songCount) + " · " +
-                                                    pluralStringResource(R.plurals.n_albums, g.albumCount, g.albumCount),
-                                                color = Muted, fontSize = 13.sp
-                                            )
-                                        }
-                                        Icon(Icons.Rounded.ChevronRight, null, tint = Muted)
+                        val sorted = remember(list, spec) { sortGenres(list, spec) }
+                        LibraryCollection(
+                            level, setLevel, sorted, { _, g -> g.name }, "genres", headerH, bottom,
+                            row = { _, g ->
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { nav.openGenre(g.name) }.padding(horizontal = 20.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Rounded.Sell, null, tint = Accent)
+                                    Spacer(Modifier.width(16.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(g.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                                        Text(
+                                            pluralStringResource(R.plurals.n_songs, g.songCount, g.songCount) + " · " +
+                                                pluralStringResource(R.plurals.n_albums, g.albumCount, g.albumCount),
+                                            color = Muted, fontSize = 13.sp
+                                        )
                                     }
+                                    Icon(Icons.Rounded.ChevronRight, null, tint = Muted)
                                 }
-                            }
-                            ListScrollbar(ls, headerH, bottom)
-                        }
+                            },
+                            tile = { _, g, cols -> GenreTile(g, cols) { nav.openGenre(g.name) } },
+                        )
                     }
                 }
 
                 LibSection.PLAYLISTS -> {
                     val st by vm.playlists.collectAsState()
                     LoadView(st, vm::refreshPlaylists) { list ->
-                        val ls = rememberKeptListState("playlists")
-                        val sortedPlaylists = remember(list, spec) { sortPlaylists(list, spec) }
-                        Box(Modifier.fillMaxSize()) {
-                            LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = pad) {
-                                item {
+                        val sorted = remember(list, spec) { sortPlaylists(list, spec) }
+                        LibraryCollection(
+                            level, setLevel, sorted, { _, p -> p.id }, "playlists", headerH, bottom,
+                            header = {
+                                Column {
                                     Row(
                                         Modifier.fillMaxWidth().clickable { onNewPlaylist() }.padding(horizontal = 16.dp, vertical = 12.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -167,12 +183,12 @@ fun LibraryScreen(
                                         Spacer(Modifier.width(12.dp))
                                         Text(stringResource(R.string.new_playlist), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                     }
+                                    if (list.isEmpty()) Text(stringResource(R.string.empty_playlists), color = Muted, modifier = Modifier.padding(16.dp))
                                 }
-                                if (list.isEmpty()) item { Text(stringResource(R.string.empty_playlists), color = Muted, modifier = Modifier.padding(16.dp)) }
-                                items(sortedPlaylists, key = { it.id }) { p -> PlaylistRow(p) { nav.openPlaylist(p.id, p.name) } }
-                            }
-                            ListScrollbar(ls, headerH, bottom)
-                        }
+                            },
+                            row = { _, p -> PlaylistRow(p) { nav.openPlaylist(p.id, p.name) } },
+                            tile = { _, p, cols -> PlaylistTile(p, cols) { nav.openPlaylist(p.id, p.name) } },
+                        )
                     }
                 }
 
@@ -180,8 +196,8 @@ fun LibraryScreen(
                     val st by vm.favorites.collectAsState()
                     LoadView(st, vm::refreshFavorites) { fav ->
                         if (fav.isEmpty) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_favs)) }
-                        else TrackColumn(
-                            remember(fav, spec) { sortTracks(fav.tracks, spec) }, vm, env, onMenu, contentPadding = pad, stateKey = "favorites",
+                        else Tracks(
+                            remember(fav, spec) { sortTracks(fav.tracks, spec) }, "favorites",
                             header = {
                                 Column {
                                     if (fav.tracks.isNotEmpty()) PlayAllRow(fav.tracks, vm)
@@ -202,8 +218,8 @@ fun LibraryScreen(
                     val bytes by vm.downloadBytes.collectAsState()
                     val inProgress = env.progress.keys.toList()
                     if (downloaded.isEmpty() && inProgress.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_downloads)) }
-                    else TrackColumn(
-                        remember(downloaded, spec) { sortTracks(downloaded, spec) }, vm, env, onMenu, contentPadding = pad, stateKey = "downloads",
+                    else Tracks(
+                        remember(downloaded, spec) { sortTracks(downloaded, spec) }, "downloads",
                         header = {
                             Column {
                                 if (inProgress.isNotEmpty()) DownloadingSection(inProgress.size, env.progress)

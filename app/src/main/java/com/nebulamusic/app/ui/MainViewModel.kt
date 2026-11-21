@@ -113,6 +113,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         c.prefs.librarySorts = sorts.value.entries.joinToString(",") { "${it.key.name}=${it.value.key.name}:${if (it.value.reverse) 1 else 0}" }
     }
 
+    /** Display level per Library category: 1 = list, 2..4 = grid columns. Albums default to 2 columns, the rest to a list. */
+    val levels = MutableStateFlow(readLevels(c.prefs.libraryLevels))
+    fun levelOf(section: LibSection) = levels.value[section] ?: if (section == LibSection.ALBUMS) 2 else 1
+    fun setLevel(section: LibSection, level: Int) {
+        levels.value = levels.value + (section to level.coerceIn(MIN_LEVEL, MAX_LEVEL))
+        c.prefs.libraryLevels = levels.value.entries.joinToString(",") { "${it.key.name}=${it.value}" }
+    }
+
+    private fun readLevels(raw: String): Map<LibSection, Int> = raw.split(',').mapNotNull { part ->
+        runCatching {
+            val (sec, lv) = part.split('=')
+            LibSection.valueOf(sec) to lv.toInt().coerceIn(MIN_LEVEL, MAX_LEVEL)
+        }.getOrNull()
+    }.toMap()
+
     private fun readSorts(raw: String): Map<LibSection, SortSpec> = raw.split(',').mapNotNull { part ->
         runCatching {
             val (sec, rest) = part.split('=')

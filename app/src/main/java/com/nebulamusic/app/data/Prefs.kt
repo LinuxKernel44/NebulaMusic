@@ -72,6 +72,11 @@ class Prefs(ctx: Context) {
         get() = sp.getString("library_sorts", "").orEmpty()
         set(v) { sp.edit().putString("library_sorts", v).apply() }
 
+    /** The display level of each Library category, e.g. "ALBUMS=3,SONGS=1" (1 = list, 2..4 = grid columns). */
+    var libraryLevels: String
+        get() = sp.getString("library_levels", "").orEmpty()
+        set(v) { sp.edit().putString("library_levels", v).apply() }
+
     private val _lightGlass = flow(sp.getBoolean("light_glass", false))
     /** Cheaper glass (no refraction / shadows): cooler phone, longer battery. */
     val lightGlass: StateFlow<Boolean> = _lightGlass.asStateFlow()
