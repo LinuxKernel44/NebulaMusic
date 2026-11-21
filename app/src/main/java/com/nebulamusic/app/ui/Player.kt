@@ -742,14 +742,8 @@ fun PlayerScreen(
                 }
 
                 // Times and format on a single row
-                val timesRow: @Composable () -> Unit = {
-                val shownMs = if (scrubbing) (cursor.value * durationMs).toLong() else posSec * 1000
                 val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Adaptive(sampler, Modifier.height(36.dp).widthIn(min = 56.dp), Alignment.CenterStart) { fg ->
-                        Text(fmtMs(shownMs), color = fg, fontWeight = FontWeight.Bold, fontSize = timeSp.sp, modifier = Modifier.padding(horizontal = 4.dp))
-                    }
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                val formatCell: @Composable () -> Unit = {
                         Adaptive(
                             sampler,
                             Modifier.height(36.dp).clip(RoundedCornerShape(12.dp)).combinedClickable(
@@ -763,6 +757,15 @@ fun PlayerScreen(
                                 fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.3.sp, maxLines = 1
                             )
                         }
+                }
+                val timesRow: @Composable (Boolean) -> Unit = { withFormat ->
+                val shownMs = if (scrubbing) (cursor.value * durationMs).toLong() else posSec * 1000
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Adaptive(sampler, Modifier.height(36.dp).widthIn(min = 56.dp), Alignment.CenterStart) { fg ->
+                        Text(fmtMs(shownMs), color = fg, fontWeight = FontWeight.Bold, fontSize = timeSp.sp, modifier = Modifier.padding(horizontal = 4.dp))
+                    }
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        if (withFormat) formatCell()
                     }
                     Adaptive(sampler, Modifier.height(36.dp).widthIn(min = 56.dp), Alignment.CenterEnd) { fg ->
                         Text(fmtMs(durationMs), color = fg, fontWeight = FontWeight.Bold, fontSize = timeSp.sp, modifier = Modifier.padding(horizontal = 4.dp))
@@ -802,10 +805,11 @@ fun PlayerScreen(
                                 }
                         )
                     }
-                    timesRow()
-                    Spacer(Modifier.height(4.dp))
+                    timesRow(false)
                     Box(Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) { transport(playerBackdrop, Modifier) }
-                } else timesRow()
+                    // Format line under the transport buttons, which lifts the controls.
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { formatCell() }
+                } else timesRow(true)
             }
             Spacer(Modifier.height(6.dp))
             Box(Modifier.navigationBarsPadding().padding(horizontal = 12.dp, vertical = 6.dp)) { AppTabs(currentTab, onNav, playerBackdrop) }
