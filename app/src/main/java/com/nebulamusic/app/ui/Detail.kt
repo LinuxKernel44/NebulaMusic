@@ -147,7 +147,10 @@ fun ArtistScreen(vm: MainViewModel, id: String, nav: Nav, onBack: () -> Unit, on
                     LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = PaddingValues(top = headerH, bottom = bottomInset + 8.dp)) {
                         item {
                             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircleCover(info.image?.let { null } ?: artist.coverArt, Modifier.size(150.dp))
+                                CircleCover(
+                                    info.image?.let { null } ?: artist.coverArt,
+                                    Modifier.size(150.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(enabled = artist.coverArt != null) { nav.openCover(artist.coverArt) }
+                                )
                                 Spacer(Modifier.height(12.dp))
                                 Text(artist.name, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, textAlign = TextAlign.Center)
                                 Text(pluralStringResource(R.plurals.n_albums, albums.size, albums.size), color = Muted, fontSize = 13.sp)
@@ -216,7 +219,7 @@ private suspend fun playArtist(vm: MainViewModel, albums: List<Album>, shuffle: 
 @Composable
 fun PlaylistScreen(
     vm: MainViewModel, id: String, name: String, onBack: () -> Unit, onMenu: (Track) -> Unit,
-    onRename: (String, String) -> Unit, version: Int = 0,
+    onRename: (String, String) -> Unit, version: Int = 0, onCover: (String?) -> Unit = {},
 ) {
     val (state, reload) = rememberLoad(vm, id to version) { it.playlist(id) }
     val env = rememberTrackEnv(vm)
@@ -235,7 +238,12 @@ fun PlaylistScreen(
                     Box(Modifier.fillMaxSize()) {
                         LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = PaddingValues(top = headerH, bottom = bottomInset + 8.dp)) {
                             item {
-                                Column {
+                                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (pl.coverArt != null) Cover(
+                                        pl.coverArt,
+                                        Modifier.fillMaxWidth(0.5f).padding(bottom = 8.dp).aspectRatio(1f).clip(RoundedCornerShape(20.dp)).clickable { onCover(pl.coverArt) },
+                                        20.dp, px = 700
+                                    )
                                     Text(
                                         pluralStringResource(R.plurals.n_songs, tracks.size, tracks.size) + " · " + fmtSec(tracks.sumOf { it.durationSec }),
                                         color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)

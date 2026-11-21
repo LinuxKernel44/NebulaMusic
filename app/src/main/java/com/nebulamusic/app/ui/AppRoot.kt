@@ -316,7 +316,7 @@ fun AppRoot(vm: MainViewModel) {
                         is Dest.Artist -> ArtistScreen(vm, d.id, nav, { stack.removeAt(stack.lastIndex) }, { menuTrack = it })
                         is Dest.Playlist -> PlaylistScreen(
                             vm, d.id, d.name, { stack.removeAt(stack.lastIndex) }, { menuTrack = it },
-                            onRename = { id, name -> dialog = PlaylistDialog.Rename(id, name) }, version = plVersion
+                            onRename = { id, name -> dialog = PlaylistDialog.Rename(id, name) }, version = plVersion, onCover = { coverView = it }
                         )
                         is Dest.Genre -> GenreScreen(vm, d.name, nav, { stack.removeAt(stack.lastIndex) })
                         null -> when (tab) {
