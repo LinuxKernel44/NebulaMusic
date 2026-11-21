@@ -420,7 +420,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val listenBrainzMessage = MutableStateFlow<String?>(null)
     fun listenBrainzConnect(token: String) = viewModelScope.launch {
         listenBrainzMessage.value = null
-        runCatching { listenBrainz.connect(token) }.onFailure { listenBrainzMessage.value = it.message ?: "Connection failed" }
+        runCatching { listenBrainz.connect(token) }.onFailure { listenBrainzMessage.value = it.message ?: "Connection failed (${it.javaClass.simpleName})" }
     }
     fun listenBrainzDisconnect() = listenBrainz.disconnect()
 

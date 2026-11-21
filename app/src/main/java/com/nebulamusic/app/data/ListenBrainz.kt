@@ -41,7 +41,7 @@ class ListenBrainz(private val http: OkHttpClient, ctx: Context) {
     private fun token() = sp.getString("token", null)?.let(Vault::decrypt).orEmpty()
 
     /** Checks [token] with the server and, if valid, stores it. Throws with a readable message otherwise. */
-    suspend fun connect(token: String) {
+    suspend fun connect(token: String) = withContext(Dispatchers.IO) {
         val t = token.trim()
         if (t.isEmpty()) throw ListenBrainzException("Paste your user token first")
         val o = request("https://api.listenbrainz.org/1/validate-token", t)
