@@ -66,10 +66,11 @@ fun GlassMenuRow(
     color: Color = Color.White,
     minWidth: Dp = 0.dp,
     fill: Boolean = true,
+    vPad: Dp = 14.dp,
 ) {
     Row(
         modifier.then(if (fill) Modifier.fillMaxWidth() else Modifier.widthIn(min = minWidth))
-            .clickable(onClick = onClick).padding(horizontal = 22.dp, vertical = 14.dp),
+            .clickable(onClick = onClick).padding(horizontal = 22.dp, vertical = vPad),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {

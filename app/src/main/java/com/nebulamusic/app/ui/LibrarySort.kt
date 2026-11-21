@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.statusBarsPadding
 import com.kyant.backdrop.Backdrop
 import com.nebulamusic.app.R
@@ -88,18 +90,24 @@ fun SortMenu(visible: Boolean, onDismiss: () -> Unit, backdrop: Backdrop, sectio
         visible = visible, onDismiss = onDismiss, backdrop = backdrop,
         alignment = Alignment.TopEnd, modifier = Modifier.statusBarsPadding().padding(top = 64.dp, end = 12.dp)
     ) {
+        // Never taller than the space above the mini player / tab bar: scrolls when the screen is small.
+        val maxH = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp - LocalBottomInset.current - 130.dp).coerceAtLeast(200.dp)
+        androidx.compose.foundation.layout.Column(
+            Modifier.heightIn(max = maxH).verticalScroll(androidx.compose.foundation.rememberScrollState())
+        ) {
         for (k in sortKeysFor(section)) {
             val on = k == spec.key
             GlassMenuRow(
                 if (on) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked, stringResource(label(section, k)),
                 { onChange(SortSpec(k, spec.reverse && !k.serverOnly)) },
-                color = if (on) GlassDefaults.Accent else Color.White, fill = false, minWidth = 240.dp,
+                color = if (on) GlassDefaults.Accent else Color.White, fill = false, minWidth = 240.dp, vPad = 10.dp,
             )
         }
         if (!spec.key.serverOnly) GlassMenuRow(
             if (spec.reverse) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank, stringResource(R.string.sort_reverse),
             { onChange(spec.copy(reverse = !spec.reverse)) },
-            color = if (spec.reverse) GlassDefaults.Accent else Color.White, fill = false, minWidth = 240.dp,
+            color = if (spec.reverse) GlassDefaults.Accent else Color.White, fill = false, minWidth = 240.dp, vPad = 10.dp,
         )
+        }
     }
 }
