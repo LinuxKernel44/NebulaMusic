@@ -332,7 +332,8 @@ fun AppRoot(vm: MainViewModel) {
                         key(k) {
                             Box(
                                 if (isTop) Modifier.fillMaxSize().graphicsLayer {
-                                    val p = backP.value
+                                    // The spring that settles back to 0 overshoots slightly below it: a negative corner radius crashes.
+                                    val p = backP.value.coerceIn(0f, 1f)
                                     val sc = 1f - 0.42f * p
                                     scaleX = sc; scaleY = sc
                                     // The point that was under the finger when the gesture began stays under the finger.
@@ -394,7 +395,7 @@ fun AppRoot(vm: MainViewModel) {
             if (playerComposed) {
                 Box(
                     Modifier.fillMaxSize().graphicsLayer {
-                        val p = progress.value
+                        val p = progress.value.coerceIn(0f, 1f) // spring overshoot must never give a negative corner radius
                         translationY = p * size.height
                         scaleX = 1f - 0.08f * p
                         scaleY = 1f - 0.08f * p
