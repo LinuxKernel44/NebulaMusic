@@ -75,6 +75,14 @@ class Prefs(ctx: Context) {
     val aiModel: StateFlow<String> = _aiModel.asStateFlow()
     fun setAiModel(v: String) { val t = v.trim(); sp.edit().putString("ai_model", t).apply(); _aiModel.value = t }
 
+    private val _autoUpdate = flow(sp.getBoolean("auto_update", true))
+    /** Look for a new version when the app starts (at most every 12 hours). */
+    val autoUpdate: StateFlow<Boolean> = _autoUpdate.asStateFlow()
+    fun setAutoUpdate(v: Boolean) { sp.edit().putBoolean("auto_update", v).apply(); _autoUpdate.value = v }
+    var lastUpdateCheck: Long
+        get() = sp.getLong("last_update_check", 0L)
+        set(v) { sp.edit().putLong("last_update_check", v).apply() }
+
     private val _highAccuracy = flow(sp.getBoolean("high_accuracy", false))
     /** Use the user's Last.fm account to choose the songs that are added automatically. */
     val highAccuracy: StateFlow<Boolean> = _highAccuracy.asStateFlow()
@@ -120,7 +128,7 @@ class Prefs(ctx: Context) {
         .put("grid", _grid.value).put("quality", _quality.value.name).put("rg", _replayGain.value.name)
         .put("crossfade", _crossfade.value).put("cache_mb", _cacheMb.value).put("bit_perfect", _bitPerfect.value)
         .put("hires_float", _hiRes.value).put("scrobble", _scrobble.value).put("light_glass", _lightGlass.value)
-        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value).put("lb_listens", _lbListens.value).put("player_style", _playerStyle.value.name).put("ai_url", _aiUrl.value).put("ai_model", _aiModel.value)
+        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value).put("lb_listens", _lbListens.value).put("player_style", _playerStyle.value.name).put("auto_update", _autoUpdate.value).put("ai_url", _aiUrl.value).put("ai_model", _aiModel.value)
 
     fun restore(o: org.json.JSONObject) {
         if (o.has("grid")) setGrid(o.optBoolean("grid", true))
@@ -134,6 +142,7 @@ class Prefs(ctx: Context) {
         if (o.has("autoplay")) setAutoplay(o.optBoolean("autoplay", true))
         if (o.has("high_accuracy")) setHighAccuracy(o.optBoolean("high_accuracy", false))
         runCatching { PlayerStyle.valueOf(o.getString("player_style")) }.getOrNull()?.let(::setPlayerStyle)
+        if (o.has("auto_update")) setAutoUpdate(o.optBoolean("auto_update", true))
         if (o.has("ai_url")) setAiUrl(o.optString("ai_url"))
         if (o.has("ai_model")) setAiModel(o.optString("ai_model"))
         if (o.has("lb_listens")) setListenBrainzListens(o.optBoolean("lb_listens", true))

@@ -48,6 +48,7 @@ import kotlinx.coroutines.launch
 private sealed interface PlaylistDialog {
     data class Create(val firstTracks: List<String>) : PlaylistDialog
     data object Ai : PlaylistDialog
+    data object Update : PlaylistDialog
     data class Rename(val id: String, val name: String) : PlaylistDialog
     data class ConfirmImport(val uri: android.net.Uri) : PlaylistDialog
 }
@@ -67,6 +68,17 @@ fun AppRoot(vm: MainViewModel) {
     var tab by rememberSaveable { mutableStateOf(runCatching { Tab.valueOf(vm.prefs.lastTab) }.getOrDefault(Tab.HOME)) }
     var section by rememberSaveable { mutableStateOf(runCatching { LibSection.valueOf(vm.prefs.lastSection) }.getOrDefault(LibSection.ALBUMS)) }
     LaunchedEffect(tab) { vm.prefs.lastTab = tab.name }
+    // Automatic update check at start (at most every 12 h); an available update is offered once per session.
+    val updState by vm.updater.state.collectAsState()
+    var updOffered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        vm.updater.cleanup()
+        val now = System.currentTimeMillis()
+        if (vm.prefs.autoUpdate.value && now - vm.prefs.lastUpdateCheck > 12 * 3600_000L) {
+            vm.prefs.lastUpdateCheck = now
+            vm.updater.check()
+        }
+    }
     LaunchedEffect(section) { vm.prefs.lastSection = section.name }
     val stack = remember { mutableStateListOf<Dest>() }
     var playerOpen by rememberSaveable { mutableStateOf(false) }
@@ -82,6 +94,11 @@ fun AppRoot(vm: MainViewModel) {
     if (menuTrack != null) lastMenuTrack = menuTrack
     if (pickerTracks != null) lastPicker = pickerTracks!!
     if (dialog != null) lastDialog = dialog
+    LaunchedEffect(updState) {
+        if (updState is com.nebulamusic.app.data.UpdateState.Available && !updOffered && dialog == null && vm.prefs.autoUpdate.value) {
+            updOffered = true; dialog = PlaylistDialog.Update
+        }
+    }
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
     fun toast(r: Int) = android.widget.Toast.makeText(ctx, r, android.widget.Toast.LENGTH_LONG).show()
@@ -311,6 +328,13 @@ fun AppRoot(vm: MainViewModel) {
                             vm, onBack = { stack.removeAt(stack.lastIndex) },
                             onPickFolder = { pendingExport = null; folderLauncher.launch(null) },
                             onAddServer = { stack.add(Dest.Login(null)) },
+                            onUpdate = {
+                                val st = vm.updater.state.value
+                                if (st is com.nebulamusic.app.data.UpdateState.Idle || st is com.nebulamusic.app.data.UpdateState.UpToDate ||
+                                    (st is com.nebulamusic.app.data.UpdateState.Failed && st.info == null)
+                                ) vm.updater.check()
+                                dialog = PlaylistDialog.Update
+                            },
                             onEditServer = { stack.add(Dest.Login(it.id)) },
                             onExport = { exportLauncher.launch("nebulamusic-settings.json") },
                             onImport = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) },
@@ -470,6 +494,7 @@ fun AppRoot(vm: MainViewModel) {
                         stringResource(R.string.new_playlist), "", stringResource(R.string.create), overlayBackdrop,
                         onConfirm = { vm.createPlaylist(it, d.firstTracks); if (d.firstTracks.size > 1) clearSelection(); dialog = null }, onDismiss = { dialog = null }
                     )
+                    is PlaylistDialog.Update -> UpdateContent(vm, overlayBackdrop, onDismiss = { dialog = null })
                     is PlaylistDialog.Ai -> {
                         val aiUrl by vm.prefs.aiUrl.collectAsState()
                         AiPlaylistContent(vm, aiUrl.isNotBlank(), overlayBackdrop, onDismiss = { dialog = null })

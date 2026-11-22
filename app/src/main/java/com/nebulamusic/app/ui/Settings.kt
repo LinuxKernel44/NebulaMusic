@@ -31,7 +31,7 @@ import com.nebulamusic.app.glass.GlassIconButton
 @Composable
 fun SettingsScreen(
     vm: MainViewModel, onBack: () -> Unit, onPickFolder: () -> Unit, onAddServer: () -> Unit,
-    onEditServer: (ServerConfig) -> Unit, onExport: () -> Unit, onImport: () -> Unit,
+    onEditServer: (ServerConfig) -> Unit, onExport: () -> Unit, onImport: () -> Unit, onUpdate: () -> Unit = {},
 ) {
     val backdrop = glassBackdrop()
     val bottomInset = LocalBottomInset.current
@@ -49,6 +49,7 @@ fun SettingsScreen(
     val lightGlass by prefs.lightGlass.collectAsState()
     val autoplay by prefs.autoplay.collectAsState()
     val playerStyle by prefs.playerStyle.collectAsState()
+    val autoUpdate by prefs.autoUpdate.collectAsState()
     val aiUrl by prefs.aiUrl.collectAsState()
     val aiModel by prefs.aiModel.collectAsState()
     val highAccuracy by prefs.highAccuracy.collectAsState()
@@ -130,6 +131,11 @@ fun SettingsScreen(
                 }
                 Text(stringResource(R.string.set_fade_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 SwitchRow(stringResource(R.string.set_scrobble), stringResource(R.string.set_scrobble_sub), scrobble) { prefs.setScrobble(it) }
+
+                SectionTitle(stringResource(R.string.set_updates))
+                Text(stringResource(R.string.upd_version, vm.updater.currentVersion), color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                ActionRow(Icons.Rounded.SystemUpdate, stringResource(R.string.upd_check)) { onUpdate() }
+                SwitchRow(stringResource(R.string.upd_auto), stringResource(R.string.upd_auto_sub), autoUpdate) { prefs.setAutoUpdate(it) }
 
                 SectionTitle(stringResource(R.string.set_player))
                 OptionRow(playerStyle == PlayerStyle.WAVEFORM, stringResource(R.string.player_waveform), stringResource(R.string.player_waveform_sub)) { prefs.setPlayerStyle(PlayerStyle.WAVEFORM) }

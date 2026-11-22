@@ -9,6 +9,7 @@ A full-featured Android client for [Navidrome](https://www.navidrome.org/) (and 
 - **Playback**: gapless playback, ReplayGain (track / album), fade between songs, scrobbling, lock-screen / notification controls with a favorite button, "stop after this song" mode, seek-by-cursor waveform with anti-click fades.
 - **Endless queue**: when the queue runs out, coherent songs are appended (server similarity, same artist / genre / era). Optional "high accuracy" mode uses ListenBrainz (free, no API key: similar songs plus your own listening taste) to pick matches from your library. ListenBrainz listens can also be submitted.
 - **AI playlists**: describe a playlist in plain words (Library > Playlists > Create with AI). Any OpenAI-compatible server (llama.cpp, Ollama, LM Studio) turns the request into a search plan, then picks and orders real songs from your library. Set the server URL in Settings.
+- **In-app updates**: checks the GitHub releases (automatically at start, or from Settings), downloads the signed APK, verifies its checksum and opens the installer. If installing from NebulaMusic is not allowed yet, the app explains it and opens the right Android setting, then continues by itself.
 - **Offline**: download songs, albums or selections as original files and play them without a network; save to / share from any folder.
 - **Multiple servers**, passwords stored with the Android Keystore (AES-GCM), settings export / import (without passwords).
 

@@ -293,6 +293,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    val updater get() = c.updater
+
     // ---- AI playlists ----------------------------------------------------------------------
     sealed interface AiUi {
         data object Idle : AiUi
