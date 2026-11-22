@@ -222,7 +222,10 @@ fun PlaylistScreen(
 
     Box(Modifier.fillMaxSize()) {
         ScreenBackdrop {
-            LoadView(state, reload) { (pl, tracks) ->
+            LoadView(state, reload) { (pl, loaded) ->
+                // Removing a song updates this list right away; the screen is not reloaded from the server.
+                var edited by remember(loaded) { mutableStateOf<List<Track>?>(null) }
+                val tracks = edited ?: loaded
                 if (tracks.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_playlist)) }
                 else {
                     val ls = rememberKeptListState("playlist")
@@ -252,7 +255,7 @@ fun PlaylistScreen(
                                         env.dls.containsKey(t.id), env.progress[t.id], onClick = { vm.play(tracks, i) },
                                         onMenu = { onMenu(t) }, modifier = Modifier.weight(1f)
                                     )
-                                    IconButton(onClick = { vm.removeFromPlaylist(pl.id, i) { reload() } }) {
+                                    IconButton(onClick = { edited = tracks.toMutableList().also { it.removeAt(i) }; vm.removeFromPlaylist(pl.id, i) }) {
                                         Icon(Icons.Rounded.RemoveCircleOutline, null, tint = Muted)
                                     }
                                 }

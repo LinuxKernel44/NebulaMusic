@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
@@ -345,8 +346,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { runCatching { api { it.deletePlaylist(id) } }; refreshPlaylists() }
     }
 
+    // Removals run one after the other: each index refers to the list as the previous removal left it.
+    private val removeLock = kotlinx.coroutines.sync.Mutex()
     fun removeFromPlaylist(playlistId: String, index: Int, done: () -> Unit = {}) {
-        viewModelScope.launch { runCatching { api { it.removeFromPlaylist(playlistId, listOf(index)) } }; refreshPlaylists(); done() }
+        viewModelScope.launch {
+            removeLock.withLock { runCatching { api { it.removeFromPlaylist(playlistId, listOf(index)) } } }
+            refreshPlaylists(); done()
+        }
     }
 
     // ---- Server library scan ----------------------------------------------------------------
