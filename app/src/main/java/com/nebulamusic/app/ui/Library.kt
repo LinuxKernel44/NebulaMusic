@@ -259,7 +259,13 @@ fun LibraryScreen(
                     Icon(Icons.Rounded.Settings, stringResource(R.string.settings), tint = Color.White)
                 }
             }
-            LazyRow(state = rememberKeptListState("chips"), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val chipsState = rememberKeptListState("chips")
+            // After a restart the row starts at the left: bring the selected category into view.
+            LaunchedEffect(Unit) {
+                val i = LibSection.entries.indexOf(section)
+                if (chipsState.layoutInfo.visibleItemsInfo.none { it.index == i }) chipsState.scrollToItem(i)
+            }
+            LazyRow(state = chipsState, contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(LibSection.entries) { s -> GlassChip(stringResource(s.label()), section == s, { onSection(s) }, backdrop) }
             }
         }

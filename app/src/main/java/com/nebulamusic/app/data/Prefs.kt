@@ -85,6 +85,14 @@ class Prefs(ctx: Context) {
     val listenBrainzListens: StateFlow<Boolean> = _lbListens.asStateFlow()
     fun setListenBrainzListens(v: Boolean) { sp.edit().putBoolean("lb_listens", v).apply(); _lbListens.value = v }
 
+    /** Where the user was: bottom tab and Library category, restored after a restart. */
+    var lastTab: String
+        get() = sp.getString("last_tab", "").orEmpty()
+        set(v) { sp.edit().putString("last_tab", v).apply() }
+    var lastSection: String
+        get() = sp.getString("last_section", "").orEmpty()
+        set(v) { sp.edit().putString("last_section", v).apply() }
+
     /** The Library sort of each category, e.g. "ALBUMS=YEAR:1,SONGS=NAME:0" (parsed by the UI). */
     var librarySorts: String
         get() = sp.getString("library_sorts", "").orEmpty()

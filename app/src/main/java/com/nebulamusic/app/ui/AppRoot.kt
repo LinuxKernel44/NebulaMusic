@@ -64,8 +64,10 @@ private sealed interface Dest {
 
 @Composable
 fun AppRoot(vm: MainViewModel) {
-    var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
-    var section by rememberSaveable { mutableStateOf(LibSection.ALBUMS) }
+    var tab by rememberSaveable { mutableStateOf(runCatching { Tab.valueOf(vm.prefs.lastTab) }.getOrDefault(Tab.HOME)) }
+    var section by rememberSaveable { mutableStateOf(runCatching { LibSection.valueOf(vm.prefs.lastSection) }.getOrDefault(LibSection.ALBUMS)) }
+    LaunchedEffect(tab) { vm.prefs.lastTab = tab.name }
+    LaunchedEffect(section) { vm.prefs.lastSection = section.name }
     val stack = remember { mutableStateListOf<Dest>() }
     var playerOpen by rememberSaveable { mutableStateOf(false) }
     var menuTrack by remember { mutableStateOf<Track?>(null) }
