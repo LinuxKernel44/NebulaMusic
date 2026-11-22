@@ -261,6 +261,8 @@
     <string name="upd_failed">Update failed (%1$s).</string>
     <string name="upd_perm">Android needs your permission to install updates from NebulaMusic. Tap the button, switch on “Allow from this source”, then come back: the installation starts by itself.</string>
     <string name="upd_perm_open">Open the setting</string>
+    <string name="liked_songs">Liked Songs</string>
+    <string name="empty_liked">No liked songs yet. Tap the thumbs-up in the player to add songs here.</string>
     <string name="set_player">PLAYER</string>
     <string name="player_waveform">Waveform</string>
     <string name="player_waveform_sub">Waveform seekbar with the transport buttons on top of it.</string>

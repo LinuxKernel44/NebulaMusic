@@ -117,3 +117,6 @@ enum class AlbumSort(val type: String) {
 /** Lower-case, accent-less string used for local filtering / sorting. */
 fun String.fold(): String =
     Normalizer.normalize(this, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase(Locale.ROOT)
+
+/** Id of the built-in "Liked Songs" playlist (it is not stored on the server: it is the list of liked songs). */
+const val LIKED_ID = "__liked__"

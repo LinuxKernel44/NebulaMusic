@@ -306,3 +306,54 @@ fun GenreScreen(vm: MainViewModel, genre: String, nav: Nav, onBack: () -> Unit) 
         }
     }
 }
+
+/** The built-in Liked Songs playlist: every song the user liked, kept up to date automatically. */
+@Composable
+fun LikedSongsScreen(vm: MainViewModel, onBack: () -> Unit, onMenu: (Track) -> Unit) {
+    val state by vm.favorites.collectAsState()
+    val env = rememberTrackEnv(vm)
+    val backdrop = glassBackdrop()
+    val bottomInset = LocalBottomInset.current
+    var headerH by remember { mutableStateOf(80.dp) }
+    LaunchedEffect(Unit) { vm.refreshFavorites() }
+    Box(Modifier.fillMaxSize()) {
+        ScreenBackdrop {
+            LoadView(state, vm::refreshFavorites) { fav ->
+                val tracks = fav.tracks
+                if (tracks.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_liked)) }
+                else {
+                    val ls = rememberKeptListState("liked")
+                    RegisterSelectable(tracks)
+                    Box(Modifier.fillMaxSize()) {
+                        LazyColumn(Modifier.fillMaxSize(), state = ls, contentPadding = PaddingValues(top = headerH, bottom = bottomInset + 8.dp)) {
+                            item {
+                                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    LikedCover(Modifier.fillMaxWidth(0.5f).padding(bottom = 8.dp).aspectRatio(1f), 20.dp)
+                                    Text(
+                                        pluralStringResource(R.plurals.n_songs, tracks.size, tracks.size) + " · " + fmtSec(tracks.sumOf { it.durationSec }),
+                                        color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                    )
+                                    ActionBar(onShuffle = { vm.play(tracks.shuffled(), 0) }, onPlay = { vm.play(tracks, 0) }) {
+                                        DownloadAction(tracks, vm, env)
+                                    }
+                                }
+                            }
+                            itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
+                                TrackRow(
+                                    t, env.ui.trackId == t.id, env.ui.isPlaying && env.ui.trackId == t.id, t.id in env.favs,
+                                    env.dls.containsKey(t.id), env.progress[t.id], onClick = { vm.play(tracks, i) }, onMenu = { onMenu(t) }
+                                )
+                            }
+                        }
+                        ListScrollbar(ls, headerH, bottomInset + 8.dp)
+                    }
+                }
+            }
+        }
+        TopScrim(headerH, Modifier.align(Alignment.TopCenter))
+        BackHeader(
+            stringResource(R.string.liked_songs), onBack, backdrop,
+            Modifier.align(Alignment.TopCenter).measureHeight { headerH = it + 8.dp }.statusBarsPadding()
+        )
+    }
+}

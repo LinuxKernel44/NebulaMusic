@@ -326,6 +326,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---- Playlists -------------------------------------------------------------------------
+    /** Pinned playlist ids, in the order they were pinned; they stay above the other playlists. */
+    val pinned = MutableStateFlow(c.prefs.pinnedPlaylists.split(',').filter { it.isNotBlank() })
+    fun togglePin(id: String) {
+        val cur = pinned.value
+        pinned.value = if (id in cur) cur - id else cur + id
+        c.prefs.pinnedPlaylists = pinned.value.joinToString(",")
+    }
+
     fun createPlaylist(name: String, firstTracks: List<String> = emptyList()) {
         viewModelScope.launch {
             runCatching { api { it.createPlaylist(name.trim().ifEmpty { "Playlist" }, firstTracks) } }

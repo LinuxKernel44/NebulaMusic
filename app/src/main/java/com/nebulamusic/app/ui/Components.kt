@@ -12,6 +12,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
@@ -249,20 +252,74 @@ fun ArtistRow(artist: Artist, onClick: () -> Unit) {
     }
 }
 
+/** Cover of the built-in Liked Songs playlist. */
 @Composable
-fun PlaylistRow(p: Playlist, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick).padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Cover(p.coverArt, Modifier.size(54.dp), 14.dp)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(p.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(pluralStringResource(R.plurals.n_songs, p.songCount, p.songCount), color = Muted, fontSize = 13.sp)
+fun LikedCover(modifier: Modifier, corner: androidx.compose.ui.unit.Dp = 14.dp) {
+    Box(
+        modifier.clip(RoundedCornerShape(corner)).background(
+            androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF5B3CF5), Color(0xFFD0409B), Color(0xFFFF8A5C)))
+        ),
+        contentAlignment = Alignment.Center
+    ) { Icon(Icons.Rounded.Favorite, null, tint = Color.White, modifier = Modifier.fillMaxSize(0.52f)) }
+}
+
+/** Swipe an item from left to right to pin / unpin it: it follows the finger, then springs back. */
+@Composable
+fun SwipeToPin(enabled: Boolean, pinned: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
+    if (!enabled) { content(); return }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val trigger = with(density) { 84.dp.toPx() }
+    val maxDrag = with(density) { 130.dp.toPx() }
+    val off = remember { androidx.compose.animation.core.Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    Box(
+        Modifier.pointerInput(Unit) {
+            detectHorizontalDragGestures(
+                onDragEnd = {
+                    val fire = off.value >= trigger
+                    scope.launch {
+                        if (fire) { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); onToggle() }
+                        off.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.7f, stiffness = 400f))
+                    }
+                },
+                onDragCancel = { scope.launch { off.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.7f, stiffness = 400f)) } },
+            ) { change, dx ->
+                change.consume()
+                val next = (off.value + dx).coerceIn(0f, maxDrag)
+                scope.launch { off.snapTo(next) }
+            }
         }
-        Icon(Icons.Rounded.ChevronRight, null, tint = Muted)
+    ) {
+        val f = (off.value / trigger).coerceIn(0f, 1f)
+        Box(Modifier.matchParentSize().padding(start = 22.dp), contentAlignment = Alignment.CenterStart) {
+            Icon(
+                if (pinned) Icons.Rounded.PushPin else Icons.Rounded.PushPin, null,
+                tint = if (f >= 1f) Accent else Muted,
+                modifier = Modifier.size(26.dp).graphicsLayer { alpha = f; scaleX = 0.7f + 0.3f * f; scaleY = 0.7f + 0.3f * f }
+            )
+        }
+        Box(Modifier.graphicsLayer { translationX = off.value }) { content() }
+    }
+}
+
+@Composable
+fun PlaylistRow(p: Playlist, pinned: Boolean = false, onTogglePin: (() -> Unit)? = null, onClick: () -> Unit) {
+    SwipeToPin(onTogglePin != null, pinned, { onTogglePin?.invoke() }) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(RoundedCornerShape(20.dp))
+                .clickable(onClick = onClick).padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (p.id == LIKED_ID) LikedCover(Modifier.size(54.dp), 14.dp) else Cover(p.coverArt, Modifier.size(54.dp), 14.dp)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(p.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(pluralStringResource(R.plurals.n_songs, p.songCount, p.songCount), color = Muted, fontSize = 13.sp)
+            }
+            if (pinned || p.id == LIKED_ID) Icon(Icons.Rounded.PushPin, null, tint = Accent, modifier = Modifier.size(16.dp))
+            Icon(Icons.Rounded.ChevronRight, null, tint = Muted)
+        }
     }
 }
 

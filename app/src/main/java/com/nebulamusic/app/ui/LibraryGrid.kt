@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Sell
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -174,10 +175,19 @@ fun ArtistTile(a: Artist, cols: Int, onClick: () -> Unit) {
 }
 
 @Composable
-fun PlaylistTile(p: Playlist, cols: Int, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(corner(cols))).combinedClickable(onClick = onClick)) {
-        Cover(p.coverArt, Modifier.fillMaxWidth().aspectRatio(1f), corner(cols), px = if (cols >= 3) 300 else 400)
-        TileText(p.name, pluralStringResource(R.plurals.n_songs, p.songCount, p.songCount), cols)
+fun PlaylistTile(p: Playlist, cols: Int, pinned: Boolean = false, onTogglePin: (() -> Unit)? = null, onClick: () -> Unit) {
+    SwipeToPin(onTogglePin != null, pinned, { onTogglePin?.invoke() }) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(corner(cols))).combinedClickable(onClick = onClick)) {
+            Box {
+                if (p.id == LIKED_ID) LikedCover(Modifier.fillMaxWidth().aspectRatio(1f), corner(cols))
+                else Cover(p.coverArt, Modifier.fillMaxWidth().aspectRatio(1f), corner(cols), px = if (cols >= 3) 300 else 400)
+                if (pinned || p.id == LIKED_ID) Icon(
+                    Icons.Rounded.PushPin, null, tint = Color.White,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(if (cols >= 4) 14.dp else 18.dp)
+                )
+            }
+            TileText(p.name, pluralStringResource(R.plurals.n_songs, p.songCount, p.songCount), cols)
+        }
     }
 }
 

@@ -169,8 +169,17 @@ fun LibraryScreen(
 
                 LibSection.PLAYLISTS -> {
                     val st by vm.playlists.collectAsState()
+                    val favState by vm.favorites.collectAsState()
+                    val pinnedIds by vm.pinned.collectAsState()
+                    LaunchedEffect(Unit) { if (favState !is Load.Ok) vm.refreshFavorites() }
+                    val likedCount = (favState as? Load.Ok)?.value?.tracks?.size ?: 0
                     LoadView(st, vm::refreshPlaylists) { list ->
-                        val sorted = remember(list, spec) { sortPlaylists(list, spec) }
+                        // Liked Songs first, then the pinned playlists (in pinning order), then the rest in the chosen order.
+                        val sorted = remember(list, spec, pinnedIds, likedCount) {
+                            val rest = sortPlaylists(list, spec)
+                            val pins = pinnedIds.mapNotNull { id -> rest.firstOrNull { it.id == id } }
+                            listOf(Playlist(id = LIKED_ID, name = "Liked Songs", songCount = likedCount)) + pins + rest.filter { it !in pins }
+                        }
                         LibraryCollection(
                             level, setLevel, sorted, { _, p -> p.id }, "playlists", headerH, bottom,
                             header = {
@@ -194,8 +203,16 @@ fun LibraryScreen(
                                     if (list.isEmpty()) Text(stringResource(R.string.empty_playlists), color = Muted, modifier = Modifier.padding(16.dp))
                                 }
                             },
-                            row = { _, p -> PlaylistRow(p) { nav.openPlaylist(p.id, p.name) } },
-                            tile = { _, p, cols -> PlaylistTile(p, cols) { nav.openPlaylist(p.id, p.name) } },
+                            row = { _, p ->
+                                PlaylistRow(
+                                    p, p.id in pinnedIds, if (p.id == LIKED_ID) null else ({ vm.togglePin(p.id) }),
+                                ) { if (p.id == LIKED_ID) nav.openLiked() else nav.openPlaylist(p.id, p.name) }
+                            },
+                            tile = { _, p, cols ->
+                                PlaylistTile(
+                                    p, cols, p.id in pinnedIds, if (p.id == LIKED_ID) null else ({ vm.togglePin(p.id) }),
+                                ) { if (p.id == LIKED_ID) nav.openLiked() else nav.openPlaylist(p.id, p.name) }
+                            },
                         )
                     }
                 }

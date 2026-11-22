@@ -93,6 +93,11 @@ class Prefs(ctx: Context) {
     val listenBrainzListens: StateFlow<Boolean> = _lbListens.asStateFlow()
     fun setListenBrainzListens(v: Boolean) { sp.edit().putBoolean("lb_listens", v).apply(); _lbListens.value = v }
 
+    /** Ids of the pinned playlists, in pinning order (comma separated). */
+    var pinnedPlaylists: String
+        get() = sp.getString("pinned_playlists", "").orEmpty()
+        set(v) { sp.edit().putString("pinned_playlists", v).apply() }
+
     /** Where the user was: bottom tab and Library category, restored after a restart. */
     var lastTab: String
         get() = sp.getString("last_tab", "").orEmpty()
@@ -128,7 +133,7 @@ class Prefs(ctx: Context) {
         .put("grid", _grid.value).put("quality", _quality.value.name).put("rg", _replayGain.value.name)
         .put("crossfade", _crossfade.value).put("cache_mb", _cacheMb.value).put("bit_perfect", _bitPerfect.value)
         .put("hires_float", _hiRes.value).put("scrobble", _scrobble.value).put("light_glass", _lightGlass.value)
-        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value).put("lb_listens", _lbListens.value).put("player_style", _playerStyle.value.name).put("auto_update", _autoUpdate.value).put("ai_url", _aiUrl.value).put("ai_model", _aiModel.value)
+        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value).put("lb_listens", _lbListens.value).put("player_style", _playerStyle.value.name).put("pinned_playlists", pinnedPlaylists).put("auto_update", _autoUpdate.value).put("ai_url", _aiUrl.value).put("ai_model", _aiModel.value)
 
     fun restore(o: org.json.JSONObject) {
         if (o.has("grid")) setGrid(o.optBoolean("grid", true))
@@ -142,6 +147,7 @@ class Prefs(ctx: Context) {
         if (o.has("autoplay")) setAutoplay(o.optBoolean("autoplay", true))
         if (o.has("high_accuracy")) setHighAccuracy(o.optBoolean("high_accuracy", false))
         runCatching { PlayerStyle.valueOf(o.getString("player_style")) }.getOrNull()?.let(::setPlayerStyle)
+        if (o.has("pinned_playlists")) pinnedPlaylists = o.optString("pinned_playlists")
         if (o.has("auto_update")) setAutoUpdate(o.optBoolean("auto_update", true))
         if (o.has("ai_url")) setAiUrl(o.optString("ai_url"))
         if (o.has("ai_model")) setAiModel(o.optString("ai_model"))

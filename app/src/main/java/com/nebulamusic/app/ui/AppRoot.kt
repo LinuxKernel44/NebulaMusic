@@ -59,6 +59,7 @@ private sealed interface Dest {
     data class Artist(val id: String) : Dest
     data class Playlist(val id: String, val name: String) : Dest
     data class Genre(val name: String) : Dest
+    data object Liked : Dest
     data object Settings : Dest
     data class Login(val serverId: String?) : Dest
 }
@@ -272,6 +273,7 @@ fun AppRoot(vm: MainViewModel) {
             openArtist = { stack.add(Dest.Artist(it)) },
             openPlaylist = { id, name -> stack.add(Dest.Playlist(id, name)) },
             openGenre = { stack.add(Dest.Genre(it)) },
+            openLiked = { if (stack.none { it is Dest.Liked }) stack.add(Dest.Liked) },
             openSettings = { if (stack.none { it is Dest.Settings }) stack.add(Dest.Settings) },
             openSearch = { stack.clear(); tab = Tab.SEARCH },
             openLibrary = { s -> stack.clear(); section = s; tab = Tab.LIBRARY },
@@ -345,6 +347,7 @@ fun AppRoot(vm: MainViewModel) {
                             vm, d.id, d.name, { stack.removeAt(stack.lastIndex) }, { menuTrack = it },
                             onRename = { id, name -> dialog = PlaylistDialog.Rename(id, name) }, version = plVersion, onCover = { coverView = it }
                         )
+                        Dest.Liked -> LikedSongsScreen(vm, { stack.removeAt(stack.lastIndex) }, { menuTrack = it })
                         is Dest.Genre -> GenreScreen(vm, d.name, nav, { stack.removeAt(stack.lastIndex) })
                         null -> when (tab) {
                             Tab.HOME -> HomeScreen(vm, nav)
