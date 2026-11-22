@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 
 private sealed interface PlaylistDialog {
     data class Create(val firstTracks: List<String>) : PlaylistDialog
+    data object Ai : PlaylistDialog
     data class Rename(val id: String, val name: String) : PlaylistDialog
     data class ConfirmImport(val uri: android.net.Uri) : PlaylistDialog
 }
@@ -325,6 +326,7 @@ fun AppRoot(vm: MainViewModel) {
                             Tab.LIBRARY -> LibraryScreen(
                                 vm, nav, section, { section = it }, onMenu = { menuTrack = it },
                                 onNewPlaylist = { dialog = PlaylistDialog.Create(emptyList()) },
+                                onAiPlaylist = { dialog = PlaylistDialog.Ai },
                             )
                         }
                     }
@@ -466,6 +468,10 @@ fun AppRoot(vm: MainViewModel) {
                         stringResource(R.string.new_playlist), "", stringResource(R.string.create), overlayBackdrop,
                         onConfirm = { vm.createPlaylist(it, d.firstTracks); if (d.firstTracks.size > 1) clearSelection(); dialog = null }, onDismiss = { dialog = null }
                     )
+                    is PlaylistDialog.Ai -> {
+                        val aiUrl by vm.prefs.aiUrl.collectAsState()
+                        AiPlaylistContent(vm, aiUrl.isNotBlank(), overlayBackdrop, onDismiss = { dialog = null })
+                    }
                     is PlaylistDialog.Rename -> NameDialogContent(
                         stringResource(R.string.rename), d.name, stringResource(R.string.ok), overlayBackdrop,
                         onConfirm = { newName ->

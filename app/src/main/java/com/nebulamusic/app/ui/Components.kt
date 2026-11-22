@@ -465,3 +465,50 @@ fun EqBars(playing: Boolean, color: Color, size: androidx.compose.ui.unit.Dp, mo
         }
     }
 }
+
+@Composable
+fun AiPlaylistContent(vm: MainViewModel, configured: Boolean, backdrop: com.kyant.backdrop.Backdrop, onDismiss: () -> Unit) {
+    val state by vm.ai.collectAsState()
+    var text by remember { mutableStateOf("") }
+    var count by remember { mutableIntStateOf(25) }
+    LaunchedEffect(Unit) { vm.aiReset() }
+    val working = state is MainViewModel.AiUi.Working
+    BasicText(stringResource(R.string.ai_title), style = TextStyle(color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold))
+    Spacer(Modifier.height(12.dp))
+    if (!configured) {
+        BasicText(stringResource(R.string.ai_not_configured), style = TextStyle(color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp))
+    } else {
+        GlassTextField(
+            value = text, onValueChange = { text = it }, placeholder = stringResource(R.string.ai_hint),
+            backdrop = backdrop, modifier = Modifier.fillMaxWidth(), imeAction = ImeAction.Done,
+            onImeAction = { vm.generateAiPlaylist(text, count) },
+        )
+        Spacer(Modifier.height(12.dp))
+        BasicText(stringResource(R.string.ai_count, count), style = TextStyle(color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp))
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (n in listOf(15, 25, 40)) {
+                GlassButton({ count = n }, backdrop, height = 38.dp, tint = if (count == n) GlassDefaults.Accent else Color.Unspecified) {
+                    BasicText("$n", style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        val msg: String? = when (val st = state) {
+            is MainViewModel.AiUi.Working -> stringResource(when (st.stage) { 1 -> R.string.ai_stage_1; 2 -> R.string.ai_stage_2; else -> R.string.ai_stage_3 })
+            is MainViewModel.AiUi.Done -> stringResource(R.string.ai_done, st.name, st.count)
+            is MainViewModel.AiUi.Failed -> stringResource(R.string.ai_failed, st.reason)
+            else -> null
+        }
+        if (msg != null) BasicText(msg, style = TextStyle(color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp))
+    }
+    Spacer(Modifier.height(16.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
+        GlassButton(onDismiss, backdrop, height = 46.dp) {
+            BasicText(stringResource(R.string.close), style = TextStyle(color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold))
+        }
+        if (configured) GlassButton({ if (!working) vm.generateAiPlaylist(text, count) }, backdrop, height = 46.dp, tint = GlassDefaults.Accent) {
+            BasicText(stringResource(R.string.ai_generate), style = TextStyle(color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold))
+        }
+    }
+}

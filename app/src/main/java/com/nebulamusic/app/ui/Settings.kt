@@ -49,6 +49,8 @@ fun SettingsScreen(
     val lightGlass by prefs.lightGlass.collectAsState()
     val autoplay by prefs.autoplay.collectAsState()
     val playerStyle by prefs.playerStyle.collectAsState()
+    val aiUrl by prefs.aiUrl.collectAsState()
+    val aiModel by prefs.aiModel.collectAsState()
     val highAccuracy by prefs.highAccuracy.collectAsState()
     val lb by vm.listenBrainz.state.collectAsState()
     val lbMsg by vm.listenBrainzMessage.collectAsState()
@@ -138,6 +140,11 @@ fun SettingsScreen(
                 if (autoplay) {
                     SwitchRow(stringResource(R.string.set_hiacc), stringResource(R.string.set_hiacc_sub), highAccuracy) { prefs.setHighAccuracy(it) }
                 }
+                SectionTitle(stringResource(R.string.set_ai))
+                Text(stringResource(R.string.set_ai_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                PlainField(aiUrl, { prefs.setAiUrl(it) }, stringResource(R.string.set_ai_url))
+                PlainField(aiModel, { prefs.setAiModel(it) }, stringResource(R.string.set_ai_model))
+
                 SectionTitle(stringResource(R.string.set_lb))
                 ListenBrainzBlock(vm, lb, lbMsg)
                 if (lb.connected) SwitchRow(stringResource(R.string.set_lb_listens), stringResource(R.string.set_lb_listens_sub), lbListens) { prefs.setListenBrainzListens(it) }
@@ -349,6 +356,20 @@ private fun AppIconPicker() {
         }
     }
     Text(stringResource(R.string.set_icon_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+}
+
+@Composable
+private fun PlainField(value: String, onValue: (String) -> Unit, hint: String) {
+    // Edited locally and saved when it changes; the stored value is trimmed, so keep what is typed separately.
+    var text by remember { mutableStateOf(value) }
+    androidx.compose.foundation.text.BasicTextField(
+        text, { text = it; onValue(it) }, singleLine = true,
+        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(Accent),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrect = false, keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(SurfaceHi).padding(horizontal = 14.dp, vertical = 13.dp),
+        decorationBox = { inner -> Box { if (text.isEmpty()) Text(hint, color = Muted, fontSize = 15.sp); inner() } }
+    )
 }
 
 @Composable

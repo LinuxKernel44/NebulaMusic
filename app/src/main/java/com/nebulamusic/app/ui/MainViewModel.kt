@@ -292,6 +292,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---- AI playlists ----------------------------------------------------------------------
+    sealed interface AiUi {
+        data object Idle : AiUi
+        data class Working(val stage: Int) : AiUi
+        data class Done(val name: String, val count: Int) : AiUi
+        data class Failed(val reason: String) : AiUi
+    }
+    private val _ai = MutableStateFlow<AiUi>(AiUi.Idle)
+    val ai: StateFlow<AiUi> = _ai
+    fun aiReset() { if (_ai.value !is AiUi.Working) _ai.value = AiUi.Idle }
+
+    fun generateAiPlaylist(request: String, count: Int) {
+        if (_ai.value is AiUi.Working || request.isBlank()) return
+        _ai.value = AiUi.Working(1)
+        viewModelScope.launch {
+            try {
+                val r = api { s ->
+                    c.aiPlaylist.generate(prefs.aiUrl.value, prefs.aiModel.value, request.trim(), count, s) { _ai.value = AiUi.Working(it) }
+                }
+                api { it.createPlaylist(r.name, r.tracks.map { t -> t.id }) }
+                refreshPlaylists()
+                _ai.value = AiUi.Done(r.name, r.tracks.size)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _ai.value = AiUi.Failed(e.message ?: e.javaClass.simpleName)
+            }
+        }
+    }
+
     // ---- Playlists -------------------------------------------------------------------------
     fun createPlaylist(name: String, firstTracks: List<String> = emptyList()) {
         viewModelScope.launch {

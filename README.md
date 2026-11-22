@@ -8,6 +8,7 @@ A full-featured Android client for [Navidrome](https://www.navidrome.org/) (and 
 - **Streaming & library**: artists, albums, songs, genres, playlists (create, rename, delete, add and remove songs), favorites (stars), search, artist biographies and top songs.
 - **Playback**: gapless playback, ReplayGain (track / album), fade between songs, scrobbling, lock-screen / notification controls with a favorite button, "stop after this song" mode, seek-by-cursor waveform with anti-click fades.
 - **Endless queue**: when the queue runs out, coherent songs are appended (server similarity, same artist / genre / era). Optional "high accuracy" mode uses ListenBrainz (free, no API key: similar songs plus your own listening taste) to pick matches from your library. ListenBrainz listens can also be submitted.
+- **AI playlists**: describe a playlist in plain words (Library > Playlists > Create with AI). Any OpenAI-compatible server (llama.cpp, Ollama, LM Studio) turns the request into a search plan, then picks and orders real songs from your library. Set the server URL in Settings.
 - **Offline**: download songs, albums or selections as original files and play them without a network; save to / share from any folder.
 - **Multiple servers**, passwords stored with the Android Keystore (AES-GCM), settings export / import (without passwords).
 

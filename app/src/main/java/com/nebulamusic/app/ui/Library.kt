@@ -48,7 +48,7 @@ private fun LibSection.label() = when (this) {
 @Composable
 fun LibraryScreen(
     vm: MainViewModel, nav: Nav, section: LibSection, onSection: (LibSection) -> Unit,
-    onMenu: (Track) -> Unit, onNewPlaylist: () -> Unit,
+    onMenu: (Track) -> Unit, onNewPlaylist: () -> Unit, onAiPlaylist: () -> Unit = {},
 ) {
     val env = rememberTrackEnv(vm)
     val sel = LocalSelection.current
@@ -182,6 +182,14 @@ fun LibraryScreen(
                                         Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Add, null, tint = GlassDefaults.Accent) }
                                         Spacer(Modifier.width(12.dp))
                                         Text(stringResource(R.string.new_playlist), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    }
+                                    Row(
+                                        Modifier.fillMaxWidth().clickable { onAiPlaylist() }.padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(Modifier.size(54.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.AutoAwesome, null, tint = GlassDefaults.Accent) }
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(stringResource(R.string.ai_new), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                     }
                                     if (list.isEmpty()) Text(stringResource(R.string.empty_playlists), color = Muted, modifier = Modifier.padding(16.dp))
                                 }

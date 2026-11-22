@@ -65,6 +65,16 @@ class Prefs(ctx: Context) {
     val playerStyle: StateFlow<PlayerStyle> = _playerStyle.asStateFlow()
     fun setPlayerStyle(v: PlayerStyle) { sp.edit().putString("player_style", v.name).apply(); _playerStyle.value = v }
 
+    private val _aiUrl = flow(sp.getString("ai_url", "") ?: "")
+    /** Base URL of an OpenAI-compatible chat server used for AI playlists (for example http://host:8180/v1). */
+    val aiUrl: StateFlow<String> = _aiUrl.asStateFlow()
+    fun setAiUrl(v: String) { val t = v.trim(); sp.edit().putString("ai_url", t).apply(); _aiUrl.value = t }
+
+    private val _aiModel = flow(sp.getString("ai_model", "") ?: "")
+    /** Optional model name sent to the AI server (blank = the server default). */
+    val aiModel: StateFlow<String> = _aiModel.asStateFlow()
+    fun setAiModel(v: String) { val t = v.trim(); sp.edit().putString("ai_model", t).apply(); _aiModel.value = t }
+
     private val _highAccuracy = flow(sp.getBoolean("high_accuracy", false))
     /** Use the user's Last.fm account to choose the songs that are added automatically. */
     val highAccuracy: StateFlow<Boolean> = _highAccuracy.asStateFlow()
@@ -102,7 +112,7 @@ class Prefs(ctx: Context) {
         .put("grid", _grid.value).put("quality", _quality.value.name).put("rg", _replayGain.value.name)
         .put("crossfade", _crossfade.value).put("cache_mb", _cacheMb.value).put("bit_perfect", _bitPerfect.value)
         .put("hires_float", _hiRes.value).put("scrobble", _scrobble.value).put("light_glass", _lightGlass.value)
-        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value).put("lb_listens", _lbListens.value).put("player_style", _playerStyle.value.name)
+        .put("autoplay", _autoplay.value).put("high_accuracy", _highAccuracy.value).put("lb_listens", _lbListens.value).put("player_style", _playerStyle.value.name).put("ai_url", _aiUrl.value).put("ai_model", _aiModel.value)
 
     fun restore(o: org.json.JSONObject) {
         if (o.has("grid")) setGrid(o.optBoolean("grid", true))
@@ -116,6 +126,8 @@ class Prefs(ctx: Context) {
         if (o.has("autoplay")) setAutoplay(o.optBoolean("autoplay", true))
         if (o.has("high_accuracy")) setHighAccuracy(o.optBoolean("high_accuracy", false))
         runCatching { PlayerStyle.valueOf(o.getString("player_style")) }.getOrNull()?.let(::setPlayerStyle)
+        if (o.has("ai_url")) setAiUrl(o.optString("ai_url"))
+        if (o.has("ai_model")) setAiModel(o.optString("ai_model"))
         if (o.has("lb_listens")) setListenBrainzListens(o.optBoolean("lb_listens", true))
         if (o.has("light_glass")) setLightGlass(o.optBoolean("light_glass", false))
     }
