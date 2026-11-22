@@ -99,7 +99,7 @@ fun QualityBadge(t: Track) {
     val hi = t.isHiRes
     Text(
         if (hi) "Hi-Res" else "Lossless", color = if (hi) Color.Black else Color.White.copy(alpha = 0.85f),
-        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+        fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
         modifier = Modifier.clip(RoundedCornerShape(50))
             .background(if (hi) Accent else Color.White.copy(alpha = 0.16f)).padding(horizontal = 7.dp, vertical = 2.dp)
     )
@@ -173,7 +173,8 @@ fun TrackRow(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     listOf(fmtSec(track.durationSec), qualityLabel(track)).filter { it.isNotBlank() }.joinToString(" | "),
-                    color = Muted, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1
+                    color = Muted, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 QualityBadge(track)
                 if (favorite) Icon(Icons.Rounded.Favorite, null, tint = Accent, modifier = Modifier.size(13.dp))
