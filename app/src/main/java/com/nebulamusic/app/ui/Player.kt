@@ -514,7 +514,12 @@ fun PlayerScreen(
                     val sidePx = if (artH > 0 && rootSize.width > 0) minOf(rootSize.width, artH + with(density) { 40.dp.roundToPx() }) else rootSize.width
                     AsyncImage(
                         model = session?.coverUrl(st.beat.coverArt, 800), contentDescription = null, contentScale = ContentScale.Crop,
-                        modifier = Modifier.align(Alignment.TopCenter).size(with(density) { sidePx.toDp() })
+                        modifier = Modifier.align(Alignment.TopCenter).then(
+                            // Classic layout: the art zone is shorter than a square, so fill its full width and height (cropped).
+                            if (style == PlayerStyle.CLASSIC && artH > 0 && rootSize.width > 0)
+                                Modifier.size(with(density) { rootSize.width.toDp() }, with(density) { (artH + 40.dp.roundToPx()).toDp() })
+                            else Modifier.size(with(density) { sidePx.toDp() })
+                        )
                             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                             .drawWithContent {
                                 drawContent()
