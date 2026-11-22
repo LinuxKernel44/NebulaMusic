@@ -566,7 +566,7 @@ fun PlayerScreen(
                 val loadingCover = beat != null && shown?.beat?.id != beat.id
                 LaunchedEffect(loadingCover) { slow = false; if (loadingCover) { delay(300); slow = true } }
                 if (loadingCover && slow) CircularProgressIndicator(
-                    color = Color.White, strokeWidth = 3.dp, modifier = Modifier.align(Alignment.Center).size(44.dp)
+                    color = Color.White, strokeWidth = 3.dp, modifier = Modifier.align(Alignment.Center).offset(y = 70.dp).size(44.dp)
                 )
             }
 
