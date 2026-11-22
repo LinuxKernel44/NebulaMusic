@@ -833,7 +833,7 @@ fun PlayerScreen(
                     timesRow(false)
                     Box(Modifier.fillMaxWidth().height(104.dp).offset(y = (-28).dp), contentAlignment = Alignment.Center) { transport(playerBackdrop, Modifier) }
                     // Format line under the transport buttons, which lifts the controls.
-                    Box(Modifier.fillMaxWidth().offset(y = (-34).dp), contentAlignment = Alignment.Center) { formatCell() }
+                    Box(Modifier.fillMaxWidth().offset(y = 4.dp), contentAlignment = Alignment.Center) { formatCell() }
                 } else timesRow(true)
             }
             Spacer(Modifier.height(6.dp))
