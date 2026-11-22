@@ -132,11 +132,6 @@ fun SettingsScreen(
                 Text(stringResource(R.string.set_fade_note), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
                 SwitchRow(stringResource(R.string.set_scrobble), stringResource(R.string.set_scrobble_sub), scrobble) { prefs.setScrobble(it) }
 
-                SectionTitle(stringResource(R.string.set_updates))
-                Text(stringResource(R.string.upd_version, vm.updater.currentVersion), color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-                ActionRow(Icons.Rounded.SystemUpdate, stringResource(R.string.upd_check)) { onUpdate() }
-                SwitchRow(stringResource(R.string.upd_auto), stringResource(R.string.upd_auto_sub), autoUpdate) { prefs.setAutoUpdate(it) }
-
                 SectionTitle(stringResource(R.string.set_player))
                 OptionRow(playerStyle == PlayerStyle.WAVEFORM, stringResource(R.string.player_waveform), stringResource(R.string.player_waveform_sub)) { prefs.setPlayerStyle(PlayerStyle.WAVEFORM) }
                 OptionRow(playerStyle == PlayerStyle.CLASSIC, stringResource(R.string.player_classic), stringResource(R.string.player_classic_sub)) { prefs.setPlayerStyle(PlayerStyle.CLASSIC) }
@@ -210,6 +205,11 @@ fun SettingsScreen(
 
                 SectionTitle(stringResource(R.string.set_about))
                 Text("NebulaMusic ${com.nebulamusic.app.BuildConfig.VERSION_NAME}", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+
+                SectionTitle(stringResource(R.string.set_updates))
+                Text(stringResource(R.string.upd_version, vm.updater.currentVersion), color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                ActionRow(Icons.Rounded.SystemUpdate, stringResource(R.string.upd_check)) { onUpdate() }
+                SwitchRow(stringResource(R.string.upd_auto), stringResource(R.string.upd_auto_sub), autoUpdate) { prefs.setAutoUpdate(it) }
             }
         }
         TopScrim(headerH, Modifier.align(Alignment.TopCenter))
