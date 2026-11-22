@@ -292,12 +292,14 @@ fun GenreScreen(vm: MainViewModel, genre: String, nav: Nav, onBack: () -> Unit) 
         ScreenBackdrop {
             LoadView(state, reload) { albums ->
                 if (albums.isEmpty()) Box(Modifier.padding(top = headerH)) { EmptyText(stringResource(R.string.empty_library)) }
-                else LazyVerticalGrid(
-                    state = rememberKeptGridState("genre"), columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = headerH, bottom = bottomInset + 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) { items(albums, key = { it.id }) { a -> AlbumCard(a, onClick = { nav.openAlbum(a.id) }) } }
+                else {
+                    val level by vm.genreLevel.collectAsState()
+                    LibraryCollection(
+                        level, vm::setGenreLevel, albums, { _, a -> a.id }, "genre", headerH, bottomInset + 8.dp,
+                        row = { _, a -> AlbumRow(a) { nav.openAlbum(a.id) } },
+                        tile = { _, a, cols -> AlbumTile(a, cols) { nav.openAlbum(a.id) } },
+                    )
+                }
             }
         }
         TopScrim(headerH, Modifier.align(Alignment.TopCenter))

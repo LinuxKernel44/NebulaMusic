@@ -116,6 +116,11 @@ class Prefs(ctx: Context) {
         get() = sp.getString("library_levels", "").orEmpty()
         set(v) { sp.edit().putString("library_levels", v).apply() }
 
+    /** Display level of the album grid inside a genre (shared by every genre): 1 = list, 2..4 = grid columns. */
+    var genreLevel: Int
+        get() = sp.getInt("genre_level", 2)
+        set(v) { sp.edit().putInt("genre_level", v).apply() }
+
     private val _lightGlass = flow(sp.getBoolean("light_glass", false))
     /** Cheaper glass (no refraction / shadows): cooler phone, longer battery. */
     val lightGlass: StateFlow<Boolean> = _lightGlass.asStateFlow()

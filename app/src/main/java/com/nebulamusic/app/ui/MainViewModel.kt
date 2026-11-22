@@ -122,6 +122,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         c.prefs.libraryLevels = levels.value.entries.joinToString(",") { "${it.key.name}=${it.value}" }
     }
 
+    /** Column count of the album grid in every genre screen (one shared setting). */
+    val genreLevel = MutableStateFlow(c.prefs.genreLevel.coerceIn(MIN_LEVEL, MAX_LEVEL))
+    fun setGenreLevel(level: Int) {
+        genreLevel.value = level.coerceIn(MIN_LEVEL, MAX_LEVEL)
+        c.prefs.genreLevel = genreLevel.value
+    }
+
     private fun readLevels(raw: String): Map<LibSection, Int> = raw.split(',').mapNotNull { part ->
         runCatching {
             val (sec, lv) = part.split('=')
