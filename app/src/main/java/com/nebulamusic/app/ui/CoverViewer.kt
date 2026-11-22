@@ -40,7 +40,11 @@ import kotlin.math.sign
 @Composable
 fun CoverViewer(coverArt: String?, onClosed: () -> Unit) {
     val session = LocalSession.current
-    val url = remember(coverArt, session) { session?.coverUrl(coverArt, 1400) }
+    val url = remember(coverArt, session) { session?.coverUrl(coverArt, 1080) }
+    // The small cover is usually already cached by the list the user came from, so something shows at once.
+    val lowUrl = remember(coverArt, session) { session?.coverUrl(coverArt, 300) }
+    var sharp by remember { mutableStateOf(false) }
+    val sharpAlpha by androidx.compose.animation.core.animateFloatAsState(if (sharp) 1f else 0f, tween(250), label = "sharp")
     val scope = rememberCoroutineScope()
     val enter = remember { Animatable(1f) } // 1 = hidden, 0 = shown
     val drag = remember { Animatable(0f) }  // vertical offset in px
@@ -86,14 +90,21 @@ fun CoverViewer(coverArt: String?, onClosed: () -> Unit) {
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { closeFade() },
             contentAlignment = Alignment.Center
         ) {
+            val imgMod = Modifier.fillMaxWidth().graphicsLayer {
+                val f = (abs(drag.value) / height).coerceIn(0f, 1f)
+                translationY = drag.value
+                val s = (1f - 0.3f * f) * (0.9f + 0.1f * (1f - enter.value.coerceIn(0f, 1f)))
+                scaleX = s; scaleY = s
+            }
+            if (lowUrl != null) AsyncImage(model = lowUrl, contentDescription = null, contentScale = ContentScale.Fit, modifier = imgMod)
             if (url != null) AsyncImage(
                 model = url, contentDescription = null, contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().graphicsLayer {
-                    val f = (abs(drag.value) / height).coerceIn(0f, 1f)
-                    translationY = drag.value
-                    val s = (1f - 0.3f * f) * (0.9f + 0.1f * (1f - enter.value.coerceIn(0f, 1f)))
-                    scaleX = s; scaleY = s
-                }
+                onState = { sharp = it is coil.compose.AsyncImagePainter.State.Success },
+                modifier = imgMod.graphicsLayer { alpha = sharpAlpha }
+            )
+            // Spinner while the full-size picture is still loading.
+            if (!sharp) androidx.compose.material3.CircularProgressIndicator(
+                color = Color.White, strokeWidth = 3.dp, modifier = Modifier.size(44.dp)
             )
         }
         com.nebulamusic.app.glass.GlassIconButton(
