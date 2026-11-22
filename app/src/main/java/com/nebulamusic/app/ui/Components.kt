@@ -252,15 +252,31 @@ fun ArtistRow(artist: Artist, onClick: () -> Unit) {
     }
 }
 
-/** Cover of the built-in Liked Songs playlist. */
+/** Cover of the built-in Liked Songs playlist: a white heart on a violet / pink / coral gradient (logo A). */
 @Composable
 fun LikedCover(modifier: Modifier, corner: androidx.compose.ui.unit.Dp = 14.dp) {
     Box(
         modifier.clip(RoundedCornerShape(corner)).background(
-            androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF5B3CF5), Color(0xFFD0409B), Color(0xFFFF8A5C)))
-        ),
-        contentAlignment = Alignment.Center
-    ) { Icon(Icons.Rounded.Favorite, null, tint = Color.White, modifier = Modifier.fillMaxSize(0.52f)) }
+            androidx.compose.ui.graphics.Brush.linearGradient(
+                0f to Color(0xFF5B3CF5), 0.55f to Color(0xFFD0409B), 1f to Color(0xFFFF8A5C)
+            )
+        )
+    ) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val k = size.minDimension / 100f
+            val heart = androidx.compose.ui.graphics.Path().apply {
+                moveTo(50f * k, 77f * k)
+                cubicTo(24f * k, 58f * k, 14f * k, 44f * k, 14f * k, 32f * k)
+                cubicTo(14f * k, 22f * k, 21f * k, 16f * k, 30f * k, 16f * k)
+                cubicTo(38f * k, 16f * k, 46f * k, 21f * k, 50f * k, 28f * k)
+                cubicTo(54f * k, 21f * k, 62f * k, 16f * k, 70f * k, 16f * k)
+                cubicTo(79f * k, 16f * k, 86f * k, 22f * k, 86f * k, 32f * k)
+                cubicTo(86f * k, 44f * k, 76f * k, 58f * k, 50f * k, 77f * k)
+                close()
+            }
+            drawPath(heart, Color.White)
+        }
+    }
 }
 
 /** Swipe an item from left to right to pin / unpin it: it follows the finger, then springs back. */
