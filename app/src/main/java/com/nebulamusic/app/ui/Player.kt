@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -84,6 +85,7 @@ import com.nebulamusic.app.data.PlayerStyle
 import com.nebulamusic.app.player.PlayMode
 import com.nebulamusic.app.player.PlayerController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -407,8 +409,13 @@ fun PlayerScreen(
     var shown by remember { mutableStateOf<ShownArt?>(null) }
     LaunchedEffect(beat?.id) {
         val b = beat ?: return@LaunchedEffect
-        session?.coverUrl(b.coverArt, 800)?.let { ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(it).build()) }
-        val (c, blurBmp) = loadArtInfo(ctx, session?.coverUrl(b.coverArt, 300))
+        // The sharp cover and the small one (palette + blur) download in parallel instead of one after the other.
+        val (c, blurBmp) = kotlinx.coroutines.coroutineScope {
+            val big = async { session?.coverUrl(b.coverArt, 800)?.let { ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(it).build()) } }
+            val info = async { loadArtInfo(ctx, session?.coverUrl(b.coverArt, 300)) }
+            big.await()
+            info.await()
+        }
         shown = ShownArt(b, c ?: shown?.tint ?: Color(0xFF26262E), blurBmp)
     }
     // Warm Coil's cache for the neighbouring tracks.
@@ -554,6 +561,13 @@ fun PlayerScreen(
                     onClose, playerBackdrop, size = 46.dp,
                     modifier = Modifier.statusBarsPadding().padding(10.dp)
                 ) { Icon(Icons.Rounded.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
+                // Spinner when the next cover takes more than a moment to arrive.
+                var slow by remember { mutableStateOf(false) }
+                val loadingCover = beat != null && shown?.beat?.id != beat.id
+                LaunchedEffect(loadingCover) { slow = false; if (loadingCover) { delay(300); slow = true } }
+                if (loadingCover && slow) CircularProgressIndicator(
+                    color = Color.White, strokeWidth = 3.dp, modifier = Modifier.align(Alignment.Center).size(44.dp)
+                )
             }
 
             Column(Modifier.padding(horizontal = 16.dp)) {
