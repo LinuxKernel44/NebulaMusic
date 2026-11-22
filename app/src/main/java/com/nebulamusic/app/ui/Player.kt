@@ -505,8 +505,13 @@ fun PlayerScreen(
                     Box(
                         Modifier.fillMaxSize().background(
                             Brush.verticalGradient(
-                                0f to Color.Transparent, 0.5f to Color.Transparent, 0.64f to Color.Black.copy(alpha = 0.12f),
-                                0.78f to Color.Black.copy(alpha = 0.45f), 0.9f to Color.Black.copy(alpha = 0.82f), 1f to Color.Black
+                                *if (style == PlayerStyle.CLASSIC) arrayOf(
+                                    0f to Color.Transparent, 0.42f to Color.Transparent, 0.56f to Color.Black.copy(alpha = 0.18f),
+                                    0.7f to Color.Black.copy(alpha = 0.5f), 0.85f to Color.Black.copy(alpha = 0.85f), 1f to Color.Black
+                                ) else arrayOf(
+                                    0f to Color.Transparent, 0.5f to Color.Transparent, 0.64f to Color.Black.copy(alpha = 0.12f),
+                                    0.78f to Color.Black.copy(alpha = 0.45f), 0.9f to Color.Black.copy(alpha = 0.82f), 1f to Color.Black
+                                )
                             )
                         )
                     )
@@ -517,14 +522,15 @@ fun PlayerScreen(
                         modifier = Modifier.align(Alignment.TopCenter).then(
                             // Classic layout: the art zone is shorter than a square, so fill its full width and height (cropped).
                             if (style == PlayerStyle.CLASSIC && artH > 0 && rootSize.width > 0)
-                                Modifier.size(with(density) { rootSize.width.toDp() }, with(density) { (artH + 40.dp.roundToPx()).toDp() })
+                                Modifier.size(with(density) { rootSize.width.toDp() }, with(density) { (artH + 120.dp.roundToPx()).toDp() })
                             else Modifier.size(with(density) { sidePx.toDp() })
                         )
                             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    Brush.verticalGradient(0.86f to Color.Black, 1f to Color.Transparent),
+                                    if (style == PlayerStyle.CLASSIC) Brush.verticalGradient(0.5f to Color.Black, 0.78f to Color.Black.copy(alpha = 0.55f), 1f to Color.Transparent)
+                                    else Brush.verticalGradient(0.86f to Color.Black, 1f to Color.Transparent),
                                     blendMode = BlendMode.DstIn
                                 )
                             }
