@@ -111,11 +111,11 @@ suspend fun loadArtInfo(ctx: android.content.Context, url: String?): Pair<Color?
     return withContext(Dispatchers.Default) {
         val p = Palette.from(bmp).maximumColorCount(16).generate()
         val c = (p.vibrantSwatch ?: p.dominantSwatch ?: p.mutedSwatch)?.let { Color(it.rgb) }
-        // Much blurrier than before: shrink to a handful of pixels, then grow back smoothly in two steps.
+        // Very blurry on purpose: shrink to a few pixels so no detail of the cover is recognisable, then grow back smoothly.
         val ratio = bmp.height / bmp.width.toFloat()
         fun scaled(src: android.graphics.Bitmap, w: Int) =
             android.graphics.Bitmap.createScaledBitmap(src, w, (w * ratio).toInt().coerceAtLeast(1), true)
-        val small = scaled(scaled(scaled(bmp, 7), 18), 40)
+        val small = scaled(scaled(scaled(scaled(bmp, 4), 9), 20), 44)
         c to small.asImageBitmap()
     }
 }
@@ -406,6 +406,8 @@ fun PlayerScreen(
     var lyricsOpen by remember { mutableStateOf(false) }
     var lyricsFull by remember { mutableStateOf(false) }
     LaunchedEffect(lyricsOpen) { if (!lyricsOpen) lyricsFull = false }
+    // Back inside the lyrics closes them (fullscreen first) instead of closing the whole player.
+    androidx.activity.compose.BackHandler(enabled = lyricsOpen) { if (lyricsFull) lyricsFull = false else lyricsOpen = false }
     val lyricsT by animateFloatAsState(if (lyricsOpen) 1f else 0f, tween(380), label = "lyricsT")
 
     // Poweramp-style track change: the previous cover/colours/title stay on screen until the next
