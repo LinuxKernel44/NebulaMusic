@@ -1,6 +1,24 @@
 package com.nebulamusic.app.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import com.nebulamusic.app.glass.GlassIconButton
+import com.nebulamusic.app.glass.GlassDefaults
+import com.kyant.backdrop.Backdrop
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,7 +69,7 @@ fun LyricsPanel(vm: MainViewModel, track: Track, position: State<Long>, onSeek: 
             vm.lyricsFor(track)?.let { LyricsUi.Ready(it) } ?: LyricsUi.None
         } catch (e: CancellationException) { throw e } catch (e: Exception) { LyricsUi.Failed }
     }
-    Box(modifier.background(Color.Black.copy(alpha = 0.64f))) {
+    Box(modifier) {
         when (val s = state) {
             LyricsUi.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center).size(36.dp), color = Color.White, strokeWidth = 3.dp)
             LyricsUi.None -> Text(stringResource(R.string.lyrics_none), color = Muted, fontSize = 16.sp, modifier = Modifier.align(Alignment.Center).padding(24.dp))
@@ -64,6 +82,7 @@ fun LyricsPanel(vm: MainViewModel, track: Track, position: State<Long>, onSeek: 
     }
 }
 
+/** Apple-Music-style lyric lines: big bold left-aligned text, the current line sharp and white, the others grey and increasingly blurred. */
 @Composable
 private fun LyricsLines(lyrics: Lyrics, trackId: String, position: State<Long>, onSeek: (Long) -> Unit) {
     val lines = lyrics.lines
@@ -86,38 +105,80 @@ private fun LyricsLines(lyrics: Lyrics, trackId: String, position: State<Long>, 
         if (current < 0 || System.currentTimeMillis() < holdUntil) return@LaunchedEffect
         programmatic = true
         try {
-            val offset = -(ls.layoutInfo.viewportSize.height / 4)
+            val offset = -(ls.layoutInfo.viewportSize.height / 12)
             if (first) ls.scrollToItem(current, offset) else ls.animateScrollToItem(current, offset)
             first = false
         } finally { programmatic = false }
     }
+    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     LazyColumn(
-        Modifier.fillMaxSize().graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
-            drawContent()
-            drawRect(
-                Brush.verticalGradient(0f to Color.Transparent, 0.09f to Color.Black, 0.88f to Color.Black, 1f to Color.Transparent),
-                blendMode = BlendMode.DstIn
-            )
-        },
+        Modifier.fillMaxSize().padding(top = statusTop + 92.dp)
+            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+                drawContent()
+                drawRect(
+                    Brush.verticalGradient(0f to Color.Transparent, 0.07f to Color.Black, 0.9f to Color.Black, 1f to Color.Transparent),
+                    blendMode = BlendMode.DstIn
+                )
+            },
         state = ls,
-        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 76.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 140.dp),
     ) {
         itemsIndexed(lines) { i, line ->
-            val active = if (lyrics.synced) i == current else true
+            val distance = if (lyrics.synced && current >= 0) kotlin.math.abs(i - current) else if (lyrics.synced) i + 1 else 0
+            val blurTarget = if (!lyrics.synced) 0.dp else when (distance) { 0 -> 0.dp; 1 -> 1.5.dp; 2 -> 3.dp; 3 -> 4.5.dp; else -> 6.dp }
+            val blurDp by animateDpAsState(blurTarget, tween(350), label = "lyricBlur")
             val color by animateColorAsState(
-                if (!lyrics.synced) Color.White.copy(alpha = 0.92f) else if (active) Color.White else Color.White.copy(alpha = 0.4f), tween(250), label = "lyric"
+                if (!lyrics.synced) Color.White.copy(alpha = 0.92f) else if (distance == 0) Color.White else Color.White.copy(alpha = 0.42f),
+                tween(300), label = "lyric"
             )
             val seek = line.startMs
+            val fx = Modifier.blur(blurDp, BlurredEdgeTreatment.Unbounded)
             if (line.text.isBlank()) Text(
-                if (lyrics.synced && active) "♪" else " ", color = color, fontSize = 22.sp, textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth().padding(vertical = if (lyrics.synced) 8.dp else 6.dp)
+                if (lyrics.synced && distance == 0) "♪" else " ", color = color, fontSize = 30.sp,
+                modifier = Modifier.fillMaxWidth().then(fx).padding(vertical = 10.dp)
             ) else Text(
-                line.text, color = color, fontSize = if (lyrics.synced) 26.sp else 19.sp, lineHeight = if (lyrics.synced) 33.sp else 26.sp,
-                fontWeight = if (lyrics.synced) FontWeight.Bold else FontWeight.SemiBold,
+                line.text, color = color, fontSize = if (lyrics.synced) 32.sp else 22.sp, lineHeight = if (lyrics.synced) 39.sp else 29.sp,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.fillMaxWidth()
+                    .then(fx)
                     .then(if (seek != null) Modifier.clickable(interactionSource = null, indication = null) { holdUntil = 0L; onSeek(seek) } else Modifier)
-                    .padding(vertical = if (lyrics.synced) 8.dp else 3.dp)
+                    .padding(vertical = if (lyrics.synced) 11.dp else 5.dp)
             )
+        }
+    }
+}
+
+/** Top bar of the lyrics view: small cover, title and artist, then lyrics (on), like and more buttons. Drag it down to close the player. */
+@Composable
+fun LyricsHeader(
+    track: Track, liked: Boolean, onLike: () -> Unit, onMenu: () -> Unit, onHideLyrics: () -> Unit,
+    backdrop: Backdrop, swipe: DraggableState, onSwipeEnd: (Float) -> Unit, modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier.fillMaxWidth().statusBarsPadding()
+            .draggable(swipe, Orientation.Vertical, onDragStopped = { onSwipeEnd(it) }),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(Modifier.padding(top = 6.dp, bottom = 14.dp).size(width = 40.dp, height = 5.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.45f)))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Cover(track.coverArt, Modifier.size(58.dp), 8.dp, px = 200)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(track.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(track.artist, color = Color.White.copy(alpha = 0.6f), fontSize = 16.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.width(8.dp))
+            GlassIconButton(onHideLyrics, backdrop, size = 40.dp, tint = GlassDefaults.Accent) {
+                Icon(Icons.Rounded.Lyrics, stringResource(R.string.lyrics), tint = Color.White, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            GlassIconButton(onLike, backdrop, size = 40.dp, tint = if (liked) GlassDefaults.Accent else Color.Unspecified) {
+                Icon(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, stringResource(R.string.like), tint = Color.White, modifier = Modifier.size(21.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            GlassIconButton(onMenu, backdrop, size = 40.dp) {
+                Icon(Icons.Rounded.MoreVert, stringResource(R.string.more), tint = Color.White, modifier = Modifier.size(22.dp))
+            }
         }
     }
 }

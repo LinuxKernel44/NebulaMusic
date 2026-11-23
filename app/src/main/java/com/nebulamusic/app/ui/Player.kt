@@ -404,6 +404,7 @@ fun PlayerScreen(
     val session = LocalSession.current
     val style by vm.prefs.playerStyle.collectAsState()
     var lyricsOpen by remember { mutableStateOf(false) }
+    val lyricsT by animateFloatAsState(if (lyricsOpen) 1f else 0f, tween(380), label = "lyricsT")
 
     // Poweramp-style track change: the previous cover/colours/title stay on screen until the next
     // artwork is decoded and its palette is ready, then everything cross-fades together in one go.
@@ -533,7 +534,7 @@ fun PlayerScreen(
                                 Modifier.size(with(density) { rootSize.width.toDp() }, with(density) { (artH + 120.dp.roundToPx()).toDp() })
                             else Modifier.size(with(density) { sidePx.toDp() })
                         )
-                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen; alpha = 1f - lyricsT }
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
@@ -543,6 +544,8 @@ fun PlayerScreen(
                                 )
                             }
                     )
+                    // Lyrics view: the cover gives way to the blurred colours, dimmed so the text reads.
+                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = lyricsT * 0.5f }.background(Color.Black))
                 }
             }
         }
@@ -552,21 +555,23 @@ fun PlayerScreen(
             // Artwork zone (swipe down from here to close the player)
             val swipeState = rememberDraggableState { onSwipeDelta(it) }
             Box(
-                Modifier.fillMaxWidth().weight(1f).onSizeChanged { artH = it.height }.draggable(
+                Modifier.fillMaxWidth().weight(1f).onSizeChanged { if (!lyricsOpen) artH = it.height }.draggable(
                     state = swipeState,
                     orientation = Orientation.Vertical,
                     onDragStopped = { velocity -> onSwipeEnd(velocity) },
                 )
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    lyricsOpen && beat != null, Modifier.fillMaxSize(),
-                    enter = androidx.compose.animation.fadeIn(tween(220)), exit = androidx.compose.animation.fadeOut(tween(180))
-                ) {
-                    if (beat != null) LyricsPanel(vm, beat, positionState, player::seekTo, Modifier.fillMaxSize())
+                if ((lyricsOpen || lyricsT > 0f) && beat != null) {
+                    LyricsPanel(vm, beat, positionState, player::seekTo, Modifier.fillMaxSize().graphicsLayer { alpha = lyricsT })
+                    LyricsHeader(
+                        beat, beat.id in favs, onLike = { vm.setFavorite(beat.id, beat.id !in favs) }, onMenu = { onMenu(beat) },
+                        onHideLyrics = { lyricsOpen = false }, backdrop = playerBackdrop, swipe = swipeState, onSwipeEnd = onSwipeEnd,
+                        modifier = Modifier.align(Alignment.TopCenter).graphicsLayer { alpha = lyricsT }
+                    )
                 }
-                GlassIconButton(
+                if (!lyricsOpen) GlassIconButton(
                     onClose, playerBackdrop, size = 46.dp,
-                    modifier = Modifier.statusBarsPadding().padding(10.dp)
+                    modifier = Modifier.statusBarsPadding().padding(10.dp).graphicsLayer { alpha = 1f - lyricsT }
                 ) { Icon(Icons.Rounded.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
                 // Spinner when the next cover takes more than a moment to arrive.
                 var slow by remember { mutableStateOf(false) }
@@ -579,6 +584,11 @@ fun PlayerScreen(
 
             Column(Modifier.padding(horizontal = 16.dp)) {
                 // Title, subtitle and like row also close the player on a downward swipe (the whole area above the queue row).
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !lyricsOpen,
+                    enter = androidx.compose.animation.expandVertically(tween(380)) + androidx.compose.animation.fadeIn(tween(300)),
+                    exit = androidx.compose.animation.shrinkVertically(tween(380)) + androidx.compose.animation.fadeOut(tween(200)),
+                ) {
                 Column(Modifier.draggable(state = swipeState, orientation = Orientation.Vertical, onDragStopped = { velocity -> onSwipeEnd(velocity) })) {
                 // Title lines: no background, ink colour follows what is behind
                 Adaptive(sampler, Modifier.fillMaxWidth().height(38.dp), Alignment.CenterStart) { fg ->
@@ -639,6 +649,7 @@ fun PlayerScreen(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+                }
                 }
 
                 // Queue · play mode · shuffle (glass)
