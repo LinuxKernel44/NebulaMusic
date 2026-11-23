@@ -14,6 +14,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import java.nio.ByteBuffer
 
 private const val FADE_OUT_MS = 35L
+/** Seeking inside the current song (lyric taps, seekbar): the fade-in processor hides the splice, so the fade-out is kept tiny. */
+private const val FADE_SEEK_MS = 10L
 private const val FADE_IN_MS = 60L
 
 /**
@@ -139,12 +141,12 @@ class FadingPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     }
 
     /** Runs [action] after a short fade-out if audio is currently audible, otherwise immediately. */
-    private fun guarded(action: () -> Unit) {
+    private fun guarded(fadeMs: Long = FADE_OUT_MS, action: () -> Unit) {
         if (fadingOut) { queue.addLast(action); return }
         if (!exo.isPlaying) { action(); return }
         fadingOut = true
         queue.addLast(action)
-        ramp(0f, FADE_OUT_MS) {
+        ramp(0f, fadeMs) {
             fadingOut = false
             val pending = queue.toList()
             queue.clear()
@@ -204,7 +206,7 @@ class FadingPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     }
 
     // ---- Seeking ---------------------------------------------------------------------------------
-    override fun seekTo(positionMs: Long) = guarded { exo.seekTo(positionMs) }
+    override fun seekTo(positionMs: Long) = guarded(FADE_SEEK_MS) { exo.seekTo(positionMs) }
     override fun seekTo(mediaItemIndex: Int, positionMs: Long) = guarded { exo.seekTo(mediaItemIndex, positionMs) }
     override fun seekToDefaultPosition() = guarded { exo.seekToDefaultPosition() }
     override fun seekToDefaultPosition(mediaItemIndex: Int) = guarded { exo.seekToDefaultPosition(mediaItemIndex) }

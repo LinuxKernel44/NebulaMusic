@@ -115,7 +115,7 @@ private fun LyricsLines(lyrics: Lyrics, trackId: String, position: State<Long>, 
                 line.text, color = color, fontSize = if (lyrics.synced) 26.sp else 19.sp, lineHeight = if (lyrics.synced) 33.sp else 26.sp,
                 fontWeight = if (lyrics.synced) FontWeight.Bold else FontWeight.SemiBold,
                 modifier = Modifier.fillMaxWidth()
-                    .then(if (seek != null) Modifier.clickable(interactionSource = null, indication = null) { onSeek(seek) } else Modifier)
+                    .then(if (seek != null) Modifier.clickable(interactionSource = null, indication = null) { holdUntil = 0L; onSeek(seek) } else Modifier)
                     .padding(vertical = if (lyrics.synced) 8.dp else 3.dp)
             )
         }
