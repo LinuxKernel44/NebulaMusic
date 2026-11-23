@@ -404,6 +404,8 @@ fun PlayerScreen(
     val session = LocalSession.current
     val style by vm.prefs.playerStyle.collectAsState()
     var lyricsOpen by remember { mutableStateOf(false) }
+    var lyricsFull by remember { mutableStateOf(false) }
+    LaunchedEffect(lyricsOpen) { if (!lyricsOpen) lyricsFull = false }
     val lyricsT by animateFloatAsState(if (lyricsOpen) 1f else 0f, tween(380), label = "lyricsT")
 
     // Poweramp-style track change: the previous cover/colours/title stay on screen until the next
@@ -562,7 +564,10 @@ fun PlayerScreen(
                 )
             ) {
                 if ((lyricsOpen || lyricsT > 0f) && beat != null) {
-                    LyricsPanel(vm, beat, positionState, player::seekTo, Modifier.fillMaxSize().graphicsLayer { alpha = lyricsT })
+                    LyricsPanel(
+                        vm, beat, positionState, player::seekTo, lyricsFull, { lyricsFull = !lyricsFull }, playerBackdrop,
+                        Modifier.fillMaxSize().graphicsLayer { alpha = lyricsT }
+                    )
                     LyricsHeader(
                         beat, beat.id in favs, onLike = { vm.setFavorite(beat.id, beat.id !in favs) }, onMenu = { onMenu(beat) },
                         onHideLyrics = { lyricsOpen = false }, backdrop = playerBackdrop, swipe = swipeState, onSwipeEnd = onSwipeEnd,
@@ -582,6 +587,12 @@ fun PlayerScreen(
                 )
             }
 
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !lyricsFull,
+                enter = androidx.compose.animation.expandVertically(tween(380)) + androidx.compose.animation.fadeIn(tween(300)),
+                exit = androidx.compose.animation.shrinkVertically(tween(380)) + androidx.compose.animation.fadeOut(tween(200)),
+            ) {
+            Column {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 // Title, subtitle and like row also close the player on a downward swipe (the whole area above the queue row).
                 androidx.compose.animation.AnimatedVisibility(
@@ -865,6 +876,8 @@ fun PlayerScreen(
             }
             Spacer(Modifier.height(6.dp))
             Box(Modifier.navigationBarsPadding().padding(horizontal = 12.dp, vertical = 6.dp)) { AppTabs(currentTab, onNav, playerBackdrop) }
+            }
+            }
         }
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import com.nebulamusic.app.glass.GlassIconButton
 import com.nebulamusic.app.glass.GlassDefaults
 import com.kyant.backdrop.Backdrop
@@ -61,7 +62,10 @@ private sealed interface LyricsUi {
  * Unsynced lyrics are plain scrollable text.
  */
 @Composable
-fun LyricsPanel(vm: MainViewModel, track: Track, position: State<Long>, onSeek: (Long) -> Unit, modifier: Modifier = Modifier) {
+fun LyricsPanel(
+    vm: MainViewModel, track: Track, position: State<Long>, onSeek: (Long) -> Unit, full: Boolean, onToggleFull: () -> Unit,
+    backdrop: Backdrop, modifier: Modifier = Modifier,
+) {
     var attempt by remember { mutableIntStateOf(0) }
     val state by produceState<LyricsUi>(LyricsUi.Loading, track.id, attempt) {
         value = LyricsUi.Loading
@@ -78,6 +82,16 @@ fun LyricsPanel(vm: MainViewModel, track: Track, position: State<Long>, onSeek: 
                 TextButton({ attempt++ }) { Text(stringResource(R.string.retry), color = Accent) }
             }
             is LyricsUi.Ready -> LyricsLines(s.lyrics, track.id, position, onSeek)
+        }
+        // Fullscreen: hides the player controls so the lyrics fill the screen; the same button brings them back.
+        GlassIconButton(
+            onToggleFull, backdrop, size = 44.dp,
+            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = if (full) 16.dp else 12.dp)
+        ) {
+            Icon(
+                if (full) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                stringResource(if (full) R.string.lyrics_exit_full else R.string.lyrics_full), tint = Color.White, modifier = Modifier.size(24.dp)
+            )
         }
     }
 }

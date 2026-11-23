@@ -68,6 +68,8 @@
     <string name="downloads_removed">Downloaded content removed</string>
     <string name="queue">Queue</string>
     <string name="lyrics">Lyrics</string>
+    <string name="lyrics_full">Fullscreen lyrics</string>
+    <string name="lyrics_exit_full">Exit fullscreen</string>
     <string name="lyrics_none">No lyrics for this song</string>
     <string name="lyrics_failed">Couldn\'t load the lyrics</string>
     <string name="retry">Retry</string>
