@@ -571,6 +571,8 @@ fun PlayerScreen(
             }
 
             Column(Modifier.padding(horizontal = 16.dp)) {
+                // Title, subtitle and like row also close the player on a downward swipe (the whole area above the queue row).
+                Column(Modifier.draggable(state = swipeState, orientation = Orientation.Vertical, onDragStopped = { velocity -> onSwipeEnd(velocity) })) {
                 // Title lines: no background, ink colour follows what is behind
                 Adaptive(sampler, Modifier.fillMaxWidth().height(38.dp), Alignment.CenterStart) { fg ->
                     Crossfade(shown?.beat, animationSpec = tween(260), label = "titleFade") { sb ->
@@ -624,6 +626,7 @@ fun PlayerScreen(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+                }
 
                 // Queue · play mode · shuffle (glass)
                 val queueRow: @Composable () -> Unit = {
