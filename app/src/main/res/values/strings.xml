@@ -14,7 +14,6 @@
     <string name="empty_playlists">No playlists yet.</string>
     <string name="empty_playlist">This playlist is empty.</string>
     <string name="empty_downloads">Nothing downloaded yet. Use the ⋮ menu on a song.</string>
-    <string name="retry">Retry</string>
     <string name="loading">Loading…</string>
     <string name="open_downloads">Open downloads</string>
 
@@ -68,6 +67,10 @@
     <string name="delete_downloaded">Delete downloaded content</string>
     <string name="downloads_removed">Downloaded content removed</string>
     <string name="queue">Queue</string>
+    <string name="lyrics">Lyrics</string>
+    <string name="lyrics_none">No lyrics for this song</string>
+    <string name="lyrics_failed">Couldn\'t load the lyrics</string>
+    <string name="retry">Retry</string>
     <string name="added_queue">Added to queue</string>
     <string name="will_play_next">Will play next</string>
 

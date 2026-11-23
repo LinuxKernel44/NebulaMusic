@@ -403,6 +403,7 @@ fun PlayerScreen(
     val beat = ui.track
     val session = LocalSession.current
     val style by vm.prefs.playerStyle.collectAsState()
+    var lyricsOpen by remember { mutableStateOf(false) }
 
     // Poweramp-style track change: the previous cover/colours/title stay on screen until the next
     // artwork is decoded and its palette is ready, then everything cross-fades together in one go.
@@ -557,6 +558,12 @@ fun PlayerScreen(
                     onDragStopped = { velocity -> onSwipeEnd(velocity) },
                 )
             ) {
+                androidx.compose.animation.AnimatedVisibility(
+                    lyricsOpen && beat != null, Modifier.fillMaxSize(),
+                    enter = androidx.compose.animation.fadeIn(tween(220)), exit = androidx.compose.animation.fadeOut(tween(180))
+                ) {
+                    if (beat != null) LyricsPanel(vm, beat, positionState, player::seekTo, Modifier.fillMaxSize())
+                }
                 GlassIconButton(
                     onClose, playerBackdrop, size = 46.dp,
                     modifier = Modifier.statusBarsPadding().padding(10.dp)
@@ -616,6 +623,12 @@ fun PlayerScreen(
                             .clickable { beat?.let { vm.setFavorite(it.id, false) } }
                     ) { fg ->
                         Icon(Icons.Rounded.ThumbDownOffAlt, stringResource(R.string.dislike), tint = fg, modifier = Modifier.size(24.dp))
+                    }
+                    Adaptive(
+                        sampler,
+                        Modifier.width(50.dp).height(40.dp).clip(RoundedCornerShape(50)).clickable { lyricsOpen = !lyricsOpen }
+                    ) { fg ->
+                        Icon(Icons.Rounded.Lyrics, stringResource(R.string.lyrics), tint = if (lyricsOpen) Accent else fg, modifier = Modifier.size(24.dp))
                     }
                     Spacer(Modifier.weight(1f))
                     Adaptive(

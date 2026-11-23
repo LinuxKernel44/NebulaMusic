@@ -44,6 +44,7 @@ private class Resp(
     val topSongs: ApiSongs? = null,
     val similarSongs2: ApiSongs? = null,
     val lyricsList: ApiLyricsList? = null,
+    val lyrics: ApiPlainLyrics? = null,
     val scanStatus: ApiScanStatus? = null,
 )
 
@@ -143,6 +144,7 @@ private class ApiArtistInfo(
 @Serializable private class ApiScanStatus(val scanning: Boolean = false, val count: Int = 0)
 @Serializable private class ApiLyricsList(val structuredLyrics: List<ApiStructuredLyrics> = emptyList())
 @Serializable private class ApiStructuredLyrics(val synced: Boolean = false, val line: List<ApiLine> = emptyList())
+@Serializable private class ApiPlainLyrics(val value: String = "")
 @Serializable private class ApiLine(val start: Long? = null, val value: String = "")
 
 // ---- Mapping --------------------------------------------------------------------------------------
@@ -361,11 +363,19 @@ class Session(
         return ScanProgress(r?.scanning ?: false, r?.count ?: 0)
     }
 
-    suspend fun lyrics(id: String): Lyrics? {
-        val l = runCatching { call("getLyricsBySongId", "id" to id).lyricsList?.structuredLyrics }.getOrNull()
-            ?.maxByOrNull { if (it.synced) 1 else 0 } ?: return null
-        val lines = l.line.map { LyricLine(if (l.synced) it.start else null, it.value) }
-        return if (lines.isEmpty()) null else Lyrics(l.synced, lines)
+    /**
+     * Lyrics of one song: OpenSubsonic `getLyricsBySongId` (synced preferred), then the legacy `getLyrics` by artist and
+     * title for servers without it. Returns null when there are none; throws only when the server cannot be reached.
+     */
+    suspend fun lyrics(id: String, artist: String, title: String): Lyrics? {
+        val structured = runCatching { call("getLyricsBySongId", "id" to id).lyricsList?.structuredLyrics }.getOrNull()
+        val best = structured?.filter { l -> l.line.any { it.value.isNotBlank() } }?.maxByOrNull { if (it.synced) 1 else 0 }
+        if (best != null) {
+            val lines = best.line.map { LyricLine(if (best.synced) it.start else null, it.value.trim()) }
+            return Lyrics(best.synced, lines)
+        }
+        val plain = call("getLyrics", "artist" to artist, "title" to title).lyrics?.value?.takeIf { it.isNotBlank() } ?: return null
+        return LyricsCodec.fromText(plain)
     }
 
     private fun exec(fullUrl: String) {

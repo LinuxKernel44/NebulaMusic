@@ -266,6 +266,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return withContext(Dispatchers.IO) { block(s) }
     }
 
+    // ---- Lyrics -----------------------------------------------------------------------------
+    private val lyricsStore = LyricsStore(java.io.File(getApplication<Application>().cacheDir, "lyrics"))
+
+    /**
+     * Lyrics of [t]: disk cache first ("no lyrics" answers are re-checked after a week), then the server. When the
+     * server cannot be reached, a stale cache entry is better than nothing; otherwise the failure is thrown.
+     */
+    suspend fun lyricsFor(t: Track): Lyrics? = withContext(Dispatchers.IO) {
+        val week = 7L * 24 * 3600 * 1000
+        lyricsStore.read(t.id, week)?.let { return@withContext it.getOrNull() }
+        try {
+            val l = api { it.lyrics(t.id, t.artist, t.title) }
+            lyricsStore.write(t.id, l)
+            l
+        } catch (e: java.io.IOException) {
+            lyricsStore.read(t.id)?.getOrNull() ?: throw e
+        }
+    }
+
     // ---- Playback ---------------------------------------------------------------------------
     fun play(list: List<Track>, index: Int) = player.playQueue(list, index)
     fun playNext(list: List<Track>) = player.playNext(list)
