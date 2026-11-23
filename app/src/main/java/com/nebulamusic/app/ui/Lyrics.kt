@@ -48,6 +48,7 @@ import com.nebulamusic.app.R
 import com.nebulamusic.app.data.Lyrics
 import com.nebulamusic.app.data.Track
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 
 private sealed interface LyricsUi {
     data object Loading : LyricsUi
@@ -111,8 +112,15 @@ private fun LyricsLines(lyrics: Lyrics, trackId: String, position: State<Long>, 
     }
     var programmatic by remember { mutableStateOf(false) }
     var holdUntil by remember { mutableLongStateOf(0L) }
+    // While the user browses by hand the lines are sharp so they can be read; the blur comes back with the auto-follow.
+    var browsing by remember { mutableStateOf(false) }
     LaunchedEffect(ls) {
-        snapshotFlow { ls.isScrollInProgress }.collect { if (it && !programmatic) holdUntil = System.currentTimeMillis() + 4000 }
+        snapshotFlow { ls.isScrollInProgress }.collect { if (it && !programmatic) { holdUntil = System.currentTimeMillis() + 4000; browsing = true } }
+    }
+    LaunchedEffect(holdUntil) {
+        val wait = holdUntil - System.currentTimeMillis()
+        if (wait > 0) delay(wait)
+        browsing = false
     }
     var first by remember(trackId) { mutableStateOf(true) }
     LaunchedEffect(current, lyrics) {
@@ -138,17 +146,19 @@ private fun LyricsLines(lyrics: Lyrics, trackId: String, position: State<Long>, 
         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 140.dp),
     ) {
         itemsIndexed(lines) { i, line ->
-            val distance = if (lyrics.synced && current >= 0) kotlin.math.abs(i - current) else if (lyrics.synced) i + 1 else 0
-            val blurTarget = if (!lyrics.synced) 0.dp else when (distance) { 0 -> 0.dp; 1 -> 1.5.dp; 2 -> 3.dp; 3 -> 4.5.dp; else -> 6.dp }
+            // Before the first line starts, the first line is the upcoming one: sharp, but still grey.
+            val distance = if (lyrics.synced) kotlin.math.abs(i - current.coerceAtLeast(0)) else 0
+            val active = !lyrics.synced || i == current
+            val blurTarget = if (!lyrics.synced || browsing) 0.dp else when (distance) { 0 -> 0.dp; 1 -> 1.5.dp; 2 -> 3.dp; 3 -> 4.5.dp; else -> 6.dp }
             val blurDp by animateDpAsState(blurTarget, tween(350), label = "lyricBlur")
             val color by animateColorAsState(
-                if (!lyrics.synced) Color.White.copy(alpha = 0.92f) else if (distance == 0) Color.White else Color.White.copy(alpha = 0.42f),
+                if (!lyrics.synced) Color.White.copy(alpha = 0.92f) else if (active) Color.White else Color.White.copy(alpha = if (browsing) 0.7f else 0.42f),
                 tween(300), label = "lyric"
             )
             val seek = line.startMs
             val fx = Modifier.blur(blurDp, BlurredEdgeTreatment.Unbounded)
             if (line.text.isBlank()) Text(
-                if (lyrics.synced && distance == 0) "♪" else " ", color = color, fontSize = 30.sp,
+                if (lyrics.synced && active) "♪" else " ", color = color, fontSize = 30.sp,
                 modifier = Modifier.fillMaxWidth().then(fx).padding(vertical = 10.dp)
             ) else Text(
                 line.text, color = color, fontSize = if (lyrics.synced) 32.sp else 22.sp, lineHeight = if (lyrics.synced) 39.sp else 29.sp,
